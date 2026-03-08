@@ -20,18 +20,18 @@ export default function SearchPage() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
   
+  interface SearchResult extends TMDBMovie {
+    media_type: 'movie' | 'tv'
+  }
+  
   const [query, setQuery] = useState(initialQuery)
-  const [movies, setMovies] = useState<TMDBMovie[]>([])
+  const [movies, setMovies] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
   const [selectedGenres, setSelectedGenres] = useState<number[]>([])
   const [minRating, setMinRating] = useState(0)
   const [yearRange, setYearRange] = useState([1980, 2024])
   const [contentType, setContentType] = useState<'movie' | 'tv' | 'both'>('both')
-
-  interface SearchResult extends TMDBMovie {
-    media_type: 'movie' | 'tv'
-  }
 
   useEffect(() => {
     if (initialQuery) {
@@ -85,7 +85,8 @@ export default function SearchPage() {
     }
     const [minYear, maxYear] = yearRange
     results = results.filter((m: SearchResult) => {
-      const dateField = m.media_type === 'tv' ? m.first_air_date : m.release_date
+      const dateField = m.media_type === 'tv' ? (m.first_air_date || m.release_date) : (m.release_date || m.first_air_date)
+      if (!dateField) return true // Include items without dates
       const year = new Date(dateField).getFullYear()
       return year >= minYear && year <= maxYear
     })
@@ -249,8 +250,8 @@ export default function SearchPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                 {movies.map((item: SearchResult, index) => {
                   const isTV = item.media_type === 'tv'
-                  const title = isTV ? item.name : item.title
-                  const date = isTV ? item.first_air_date : item.release_date
+                  const title = isTV ? (item.name || item.title || 'Untitled') : (item.title || item.name || 'Untitled')
+                  const date = isTV ? (item.first_air_date || item.release_date || '') : (item.release_date || item.first_air_date || '')
                   const href = isTV ? `/tv/${item.id}` : `/movie/${item.id}`
                   
                   return (
@@ -280,7 +281,7 @@ export default function SearchPage() {
                             {title}
                           </h3>
                           <p className="text-xs text-white/60 mt-1">
-                            {new Date(date).getFullYear()}
+                            {date ? new Date(date).getFullYear() : 'N/A'}
                           </p>
                         </div>
                       </Link>
