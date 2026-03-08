@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "npx",
+      "args": [
+        "@_davideast/stitch-mcp",
+        "proxy"
+      ],
+      "env": {
+        "STITCH_API_KEY": "AQ.Ab8RN6I8kljrePwpBw9E_WlX5scHpsE2c5lE4eLGeVi3Tyew2g"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_projects",
+        "create_project",
+        "generate_screen_from_text",
+        "generate_screen_from_text",
+        "generate_screen_from_text"
+      ]
+    }
+  }
+}
