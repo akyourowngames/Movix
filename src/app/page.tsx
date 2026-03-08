@@ -4,21 +4,29 @@ import { getTrendingHindi, getNewReleases, getTrendingWebSeries, getImageUrl, ty
 import type { Movie } from '@/lib/data'
 
 async function transformTMDBToMovie(tmdbMovies: TMDBMovie[], type: 'movie' | 'tv' = 'movie'): Promise<Movie[]> {
-  return tmdbMovies.map((item) => ({
-    id: item.id.toString(),
-    title: type === 'tv' ? item.name : item.title,
-    hindiTitle: type === 'tv' 
-      ? (item.original_name !== item.name ? item.original_name : undefined)
-      : (item.original_title !== item.title ? item.original_title : undefined),
-    poster: getImageUrl(item.poster_path),
-    backdrop: getImageUrl(item.backdrop_path, 'original'),
-    genre: [],
-    year: new Date(type === 'tv' ? item.first_air_date : item.release_date).getFullYear(),
-    duration: type === 'tv' ? 'Series' : '2h 30m',
-    rating: item.vote_average,
-    quality: item.vote_average >= 7 ? '4K' : 'HD',
-    description: item.overview,
-  }))
+  return tmdbMovies.map((item) => {
+    const title = type === 'tv' ? (item.name || item.title) : (item.title || item.name || 'Untitled')
+    const originalTitle = type === 'tv' 
+      ? (item.original_name || item.original_title)
+      : (item.original_title || item.original_name)
+    const releaseDate = type === 'tv' 
+      ? (item.first_air_date || item.release_date || '')
+      : (item.release_date || item.first_air_date || '')
+    
+    return {
+      id: item.id.toString(),
+      title,
+      hindiTitle: originalTitle !== title ? originalTitle : undefined,
+      poster: getImageUrl(item.poster_path),
+      backdrop: getImageUrl(item.backdrop_path, 'original'),
+      genre: [],
+      year: releaseDate ? new Date(releaseDate).getFullYear() : new Date().getFullYear(),
+      duration: type === 'tv' ? 'Series' : '2h 30m',
+      rating: item.vote_average,
+      quality: item.vote_average >= 7 ? '4K' : 'HD',
+      description: item.overview,
+    }
+  })
 }
 
 export default async function Home() {
