@@ -2,6 +2,8 @@
 
 A modern, feature-rich Hindi movie and web series streaming platform built with Next.js 14, TMDB API, and Tailwind CSS.
 
+> **Latest Update:** Added 8StreamApi integration with custom HLS player for premium quality streaming.
+
 ## ✨ Features
 
 ### Core Features
