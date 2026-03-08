@@ -5,11 +5,14 @@ const IMG_BASE = 'https://image.tmdb.org/t/p'
 export interface TMDBMovie {
   id: number
   title: string
+  name?: string // For TV shows
   original_title: string
+  original_name?: string // For TV shows
   poster_path: string
   backdrop_path: string
   overview: string
   release_date: string
+  first_air_date?: string // For TV shows
   vote_average: number
   genre_ids: number[]
   imdb_id?: string

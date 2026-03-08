@@ -113,8 +113,8 @@ export default function BrowsePage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mb-8">
               {movies.map((item: TMDBMovie, index) => {
                 const isTV = contentType === 'tv'
-                const title = isTV ? item.name : item.title
-                const date = isTV ? item.first_air_date : item.release_date
+                const title = isTV ? (item.name || item.title) : (item.title || item.name || '')
+                const date = isTV ? (item.first_air_date || item.release_date) : (item.release_date || item.first_air_date || '')
                 const href = isTV ? `/tv/${item.id}` : `/movie/${item.id}`
                 
                 return (
