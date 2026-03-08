@@ -127,6 +127,7 @@ export default function BrowsePage() {
                     <Link href={href}>
                       <div className="group cursor-pointer">
                         <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={getImageUrl(item.poster_path)}
                             alt={title}

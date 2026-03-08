@@ -51,6 +51,7 @@ export default async function GenrePage({ params }: { params: { id: string } }) 
             <Link key={movie.id} href={`/movie/${movie.id}`}>
               <div className="group cursor-pointer">
                 <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={getImageUrl(movie.poster_path)}
                     alt={movie.title}

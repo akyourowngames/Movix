@@ -37,6 +37,7 @@ function SearchPageContent() {
     if (initialQuery) {
       handleSearch()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery])
 
   useEffect(() => {
@@ -48,6 +49,7 @@ function SearchPageContent() {
       }
     }, 500)
     return () => clearTimeout(delaySearch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, selectedGenres, minRating, yearRange, contentType])
 
   const handleSearch = async () => {
@@ -264,6 +266,7 @@ function SearchPageContent() {
                       <Link href={href}>
                         <div className="group cursor-pointer">
                           <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={getImageUrl(item.poster_path)}
                               alt={title}

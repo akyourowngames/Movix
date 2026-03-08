@@ -120,6 +120,7 @@ export default function ProfilePage() {
               <Link href={`/movie/${movie.id}`}>
                 <div className="group cursor-pointer">
                   <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={movie.poster}
                       alt={movie.title}

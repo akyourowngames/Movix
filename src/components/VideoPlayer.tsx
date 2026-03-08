@@ -98,8 +98,9 @@ export default function VideoPlayer({
   episode = 1,
   title,
 }: VideoPlayerProps) {
-  // Skip 8Stream if no IMDB ID
-  const initialServerIndex = imdbId ? 0 : 1
+  // Skip 8Stream by default due to upstream source issues
+  // Set to 0 to enable 8Stream (if you have a working deployment)
+  const initialServerIndex = imdbId && false ? 0 : 1 // Disabled for now
   
   const [serverIndex, setServerIndex] = useState(initialServerIndex)
   const [loading, setLoading] = useState(true)
@@ -120,7 +121,7 @@ export default function VideoPlayer({
       setError(false)
       setHlsUrl(null)
 
-      getHindiStream(imdbId, type)
+      getHindiStream(imdbId)
         .then((result) => {
           if (result.success && result.url) {
             setHlsUrl(result.url)

@@ -154,6 +154,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
                   >
                     <div className="aspect-video bg-zinc-900 overflow-hidden">
                       {episode.still_path ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={`https://image.tmdb.org/t/p/w500${episode.still_path}`}
                           alt={episode.name}
@@ -187,6 +188,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 w-32 aspect-video rounded-lg overflow-hidden bg-zinc-900">
               {currentEpisode.still_path ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={`https://image.tmdb.org/t/p/w500${currentEpisode.still_path}`}
                   alt={currentEpisode.name}

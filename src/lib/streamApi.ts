@@ -81,8 +81,7 @@ export async function getStreamUrl(file: string, key: string): Promise<StreamRes
  * This is the main function to use - handles the full flow
  */
 export async function getHindiStream(
-  imdbId: string,
-  type: 'movie' | 'tv' = 'movie'
+  imdbId: string
 ): Promise<{ success: boolean; url?: string; message?: string; language?: string }> {
   try {
     // Step 1: Get media info
