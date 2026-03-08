@@ -1,6 +1,5 @@
 import { getTVDetails, getImageUrl } from '@/lib/tmdb'
-import VideoPlayer from '@/components/VideoPlayer'
-import { Star, Clock, Calendar, Users, Tv } from 'lucide-react'
+import { Star, Calendar, Users, Tv } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -164,7 +163,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
       </div>
     </main>
   )
-  } catch (error) {
+  } catch {
     notFound()
   }
 }

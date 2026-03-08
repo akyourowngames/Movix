@@ -160,22 +160,8 @@ export default function VideoPlayer({
       {/* Indian TV notice — show when content might not be available */}
       {type === 'tv' && serverIndex === 0 && (
         <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
-          ⚠️ Indian TV serials may not be on Server 1 — try Server 2 or 4 for better results
+          ⚠️ Indian TV serials may not be on Server 1 — try Server 2 or 5 for better results
         </div>
-      )}
-
-      {/* Hindi Dub Banner - Only shows for Server 2 (LetsEmbed) */}
-      {currentServer.hindiDub && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 p-3 bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 rounded-xl"
-        >
-          <span className="text-2xl">🇮🇳</span>
-          <p className="text-sm font-medium text-orange-200">
-            Hindi dub available — use the language selector inside the player
-          </p>
-        </motion.div>
       )}
 
       {/* Player */}

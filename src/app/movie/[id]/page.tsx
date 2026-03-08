@@ -161,7 +161,7 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
       </div>
     </main>
   )
-  } catch (error) {
+  } catch {
     notFound()
   }
 }
