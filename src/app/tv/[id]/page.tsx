@@ -20,6 +20,25 @@ export default async function TVPage({ params }: { params: { id: string } }) {
     const cast = show.credits?.cast?.slice(0, 6) || []
     const similar = show.similar?.results?.slice(0, 6) || []
 
+    interface Genre {
+      id: number
+      name: string
+    }
+
+    interface CastMember {
+      id: number
+      name: string
+      character: string
+      profile_path: string | null
+    }
+
+    interface SimilarShow {
+      id: number
+      name: string
+      poster_path: string
+      vote_average: number
+    }
+
     return (
     <main className="min-h-screen bg-background pt-20 pb-32">
       {/* Backdrop */}
@@ -78,7 +97,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
             </div>
 
             <div className="flex gap-2 flex-wrap">
-              {show.genres?.map((genre: any) => (
+              {show.genres?.map((genre: Genre) => (
                 <span
                   key={genre.id}
                   className="px-3 py-1 bg-white/10 rounded-full text-sm backdrop-blur-sm"
@@ -98,7 +117,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
                   <h3 className="font-display text-lg md:text-xl font-bold">Cast / कलाकार</h3>
                 </div>
                 <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
-                  {cast.map((person: any) => (
+                  {cast.map((person: CastMember) => (
                     <div key={person.id} className="flex-shrink-0 text-center">
                       <div className="w-20 h-20 rounded-full overflow-hidden mb-2 bg-white/5 relative">
                         {person.profile_path ? (
@@ -136,7 +155,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
           <div className="mt-16">
             <h3 className="font-display text-3xl font-bold mb-8">Similar Shows / समान शो</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-              {similar.map((s: any) => (
+              {similar.map((s: SimilarShow) => (
                 <Link key={s.id} href={`/tv/${s.id}`}>
                   <div className="group cursor-pointer">
                     <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">

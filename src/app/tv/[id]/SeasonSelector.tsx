@@ -53,8 +53,8 @@ export default function SeasonSelector({ tmdbId, seasons, showTitle }: SeasonSel
         const data = await getSeasonEpisodes(tmdbId, selectedSeason)
         setEpisodes(data.episodes || [])
         setSelectedEpisode(1) // Reset to first episode
-      } catch (error) {
-        console.error('Failed to fetch episodes:', error)
+      } catch {
+        console.error('Failed to fetch episodes')
         setEpisodes([])
       }
       setLoading(false)
