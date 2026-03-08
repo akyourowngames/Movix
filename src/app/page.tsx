@@ -1,9 +1,9 @@
 import HeroSection from '@/components/HeroSection'
 import MovieCarousel from '@/components/MovieCarousel'
-import { getTrendingHindi, getNewReleases, getTrendingWebSeries, getImageUrl } from '@/lib/tmdb'
+import { getTrendingHindi, getNewReleases, getTrendingWebSeries, getImageUrl, type TMDBMovie } from '@/lib/tmdb'
 import type { Movie } from '@/lib/data'
 
-async function transformTMDBToMovie(tmdbMovies: any[], type: 'movie' | 'tv' = 'movie'): Promise<Movie[]> {
+async function transformTMDBToMovie(tmdbMovies: TMDBMovie[], type: 'movie' | 'tv' = 'movie'): Promise<Movie[]> {
   return tmdbMovies.map((item) => ({
     id: item.id.toString(),
     title: type === 'tv' ? item.name : item.title,

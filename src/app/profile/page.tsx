@@ -15,6 +15,8 @@ const MOCK_WATCHLIST = [
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'watchlist' | 'continue' | 'favorites' | 'history'>('continue')
 
+  type TabId = 'watchlist' | 'continue' | 'favorites' | 'history'
+
   const tabs = [
     { id: 'watchlist', label: 'My Watchlist', hindi: 'मेरी वॉचलिस्ट', icon: Film },
     { id: 'continue', label: 'Continue Watching', hindi: 'देखना जारी रखें', icon: Play },
@@ -91,7 +93,7 @@ export default function ProfilePage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as TabId)}
                 className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-primary text-background'

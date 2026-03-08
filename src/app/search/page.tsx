@@ -29,6 +29,10 @@ export default function SearchPage() {
   const [yearRange, setYearRange] = useState([1980, 2024])
   const [contentType, setContentType] = useState<'movie' | 'tv' | 'both'>('both')
 
+  interface SearchResult extends TMDBMovie {
+    media_type: 'movie' | 'tv'
+  }
+
   useEffect(() => {
     if (initialQuery) {
       handleSearch()
@@ -51,7 +55,7 @@ export default function SearchPage() {
     
     setLoading(true)
     
-    let results: any[] = []
+    let results: SearchResult[] = []
     
     if (contentType === 'both') {
       const [movieData, tvData] = await Promise.all([
@@ -59,28 +63,28 @@ export default function SearchPage() {
         searchWebSeries(query)
       ])
       results = [
-        ...(movieData.results || []).map((m: any) => ({ ...m, media_type: 'movie' })),
-        ...(tvData.results || []).map((t: any) => ({ ...t, media_type: 'tv' }))
+        ...(movieData.results || []).map((m: TMDBMovie) => ({ ...m, media_type: 'movie' as const })),
+        ...(tvData.results || []).map((t: TMDBMovie) => ({ ...t, media_type: 'tv' as const }))
       ]
     } else if (contentType === 'movie') {
       const data = await searchMovies(query)
-      results = (data.results || []).map((m: any) => ({ ...m, media_type: 'movie' }))
+      results = (data.results || []).map((m: TMDBMovie) => ({ ...m, media_type: 'movie' as const }))
     } else {
       const data = await searchWebSeries(query)
-      results = (data.results || []).map((t: any) => ({ ...t, media_type: 'tv' }))
+      results = (data.results || []).map((t: TMDBMovie) => ({ ...t, media_type: 'tv' as const }))
     }
     
     // Apply filters
     if (selectedGenres.length > 0) {
-      results = results.filter((m: any) => 
+      results = results.filter((m: SearchResult) => 
         m.genre_ids?.some((g: number) => selectedGenres.includes(g))
       )
     }
     if (minRating > 0) {
-      results = results.filter((m: any) => m.vote_average >= minRating)
+      results = results.filter((m: SearchResult) => m.vote_average >= minRating)
     }
     const [minYear, maxYear] = yearRange
-    results = results.filter((m: any) => {
+    results = results.filter((m: SearchResult) => {
       const dateField = m.media_type === 'tv' ? m.first_air_date : m.release_date
       const year = new Date(dateField).getFullYear()
       return year >= minYear && year <= maxYear
@@ -243,7 +247,7 @@ export default function SearchPage() {
               </div>
             ) : movies.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                {movies.map((item: any, index) => {
+                {movies.map((item: SearchResult, index) => {
                   const isTV = item.media_type === 'tv'
                   const title = isTV ? item.name : item.title
                   const date = isTV ? item.first_air_date : item.release_date

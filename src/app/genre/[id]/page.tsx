@@ -30,6 +30,14 @@ export default async function GenrePage({ params }: { params: { id: string } }) 
   const data = await getMoviesByGenre(params.id)
   const movies = data.results || []
 
+  interface MovieItem {
+    id: number
+    title: string
+    poster_path: string
+    vote_average: number
+    release_date: string
+  }
+
   return (
     <main className="min-h-screen bg-background pt-24 pb-32">
       <div className="container mx-auto px-6">
@@ -39,7 +47,7 @@ export default async function GenrePage({ params }: { params: { id: string } }) 
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {movies.map((movie: any) => (
+          {movies.map((movie: MovieItem) => (
             <Link key={movie.id} href={`/movie/${movie.id}`}>
               <div className="group cursor-pointer">
                 <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
