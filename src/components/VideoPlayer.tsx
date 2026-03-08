@@ -230,7 +230,6 @@ export default function VideoPlayer({
             allowFullScreen
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             referrerPolicy="no-referrer-when-downgrade"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
             onLoad={() => {
               setLoading(false)
               setError(false)

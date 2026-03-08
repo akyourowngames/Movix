@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { searchMovies, searchWebSeries, getImageUrl, type TMDBMovie } from '@/lib/tmdb'
 import Link from 'next/link'
 import { Search, Star, Filter, X, Film, Tv } from 'lucide-react'
@@ -16,7 +16,7 @@ const GENRES = [
   { id: 27, name: 'Horror', hindi: 'हॉरर' },
 ]
 
-export default function SearchPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
   
@@ -302,5 +302,21 @@ export default function SearchPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-background pt-24 pb-32">
+        <div className="container mx-auto px-6">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </main>
+    }>
+      <SearchPageContent />
+    </Suspense>
   )
 }
