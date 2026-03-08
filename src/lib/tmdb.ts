@@ -24,7 +24,7 @@ export const getTrendingHindi = async (page: number = 1) => {
     )
     if (!res.ok) return { results: [] }
     return res.json()
-  } catch (error) {
+  } catch {
     return { results: [] }
   }
 }
@@ -38,7 +38,7 @@ export const getNewReleases = async (page: number = 1) => {
     )
     if (!res.ok) return { results: [] }
     return res.json()
-  } catch (error) {
+  } catch {
     return { results: [] }
   }
 }
@@ -51,7 +51,7 @@ export const searchMovies = async (query: string) => {
     )
     if (!res.ok) return { results: [] }
     return res.json()
-  } catch (error) {
+  } catch {
     return { results: [] }
   }
 }
@@ -69,7 +69,7 @@ export const getMovieDetails = async (tmdbId: string) => {
     }
     
     return res.json()
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -83,7 +83,7 @@ export const getTrendingWebSeries = async (page: number = 1) => {
     )
     if (!res.ok) return { results: [] }
     return res.json()
-  } catch (error) {
+  } catch {
     return { results: [] }
   }
 }
@@ -97,7 +97,7 @@ export const getPopularShows = async (page: number = 1) => {
     )
     if (!res.ok) return { results: [] }
     return res.json()
-  } catch (error) {
+  } catch {
     return { results: [] }
   }
 }
@@ -110,7 +110,7 @@ export const searchWebSeries = async (query: string) => {
     )
     if (!res.ok) return { results: [] }
     return res.json()
-  } catch (error) {
+  } catch {
     return { results: [] }
   }
 }
@@ -128,7 +128,7 @@ export const getTVDetails = async (tmdbId: string) => {
     }
     
     return res.json()
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -146,7 +146,7 @@ export const getSeasonEpisodes = async (tmdbId: string, season: number) => {
     }
     
     return res.json()
-  } catch (error) {
+  } catch {
     return { episodes: [] }
   }
 }
