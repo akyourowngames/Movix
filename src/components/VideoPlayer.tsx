@@ -4,69 +4,61 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
 
-// ✅ UPDATED SERVER LIST — SmashyStream added for better coverage
+// ✅ UPDATED SERVER LIST — Optimized for India (vidsrc.xyz removed due to ISP blocks)
 const SERVERS = [
   {
-    name: 'SmashyStream',
+    name: 'VidSrc CC',
     label: 'Server 1',
-    movie: (id: string) => `https://player.smashy.stream/movie/${id}`,
-    tv: (id: string, s: number, e: number) => `https://player.smashy.stream/tv/${id}?s=${s}&e=${e}`,
-    note: 'Best coverage',
-    reliable: true,
-  },
-  {
-    name: 'VidSrc',
-    label: 'Server 2',
-    movie: (id: string) => `https://vidsrc.xyz/embed/movie?tmdb=${id}`,
-    tv: (id: string, s: number, e: number) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
-    note: 'Most content',
+    movie: (id: string) => `https://vidsrc.cc/v2/embed/movie/${id}`,
+    tv: (id: string, s: number, e: number) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
+    note: 'Best for India ✅',
     reliable: true,
   },
   {
     name: 'LetsEmbed 🇮🇳',
-    label: 'Server 3',
+    label: 'Server 2',
     movie: (id: string) => `https://letsembed.cc/embed/movie/?id=${id}`,
     tv: (id: string, s: number, e: number) => `https://letsembed.cc/embed/tv/?id=${id}/${s}/${e}`,
-    note: 'Hindi dub + Indian TV',
-    reliable: true,
-  },
-  {
-    name: 'VidSrc CC',
-    label: 'Server 4',
-    movie: (id: string) => `https://vidsrc.cc/v2/embed/movie/${id}`,
-    tv: (id: string, s: number, e: number) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
-    note: 'Multi-source',
+    note: 'Hindi dub',
     reliable: true,
   },
   {
     name: 'VidLink',
-    label: 'Server 5',
+    label: 'Server 3',
     movie: (id: string) => `https://vidlink.pro/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://vidlink.pro/tv/${id}/${s}/${e}`,
-    note: 'Fast loading',
+    note: 'Fast + audio switcher',
+    reliable: true,
+  },
+  {
+    name: 'SmashyStream',
+    label: 'Server 4',
+    movie: (id: string) => `https://player.smashy.stream/movie/${id}`,
+    tv: (id: string, s: number, e: number) => `https://player.smashy.stream/tv/${id}?s=${s}&e=${e}`,
+    note: 'Wide library',
     reliable: true,
   },
   {
     name: 'AutoEmbed',
-    label: 'Server 6',
+    label: 'Server 5',
     movie: (id: string) => `https://player.autoembed.cc/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`,
-    note: 'Indian content',
+    note: 'Backup',
     reliable: true,
+  },
+  {
+    name: 'EmbedSu',
+    label: 'Server 6',
+    movie: (id: string) => `https://embed.su/embed/movie/${id}`,
+    tv: (id: string, s: number, e: number) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
+    note: 'Fallback',
+    reliable: false,
   },
   {
     name: '2Embed',
     label: 'Server 7',
     movie: (id: string) => `https://www.2embed.stream/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://www.2embed.stream/embed/tv/${id}/${s}/${e}`,
-    note: 'Fallback',
-    reliable: false,
-  },
-  {
-    name: 'EmbedSu',
-    label: 'Server 8',
-    movie: (id: string) => `https://embed.su/embed/movie/${id}`,
-    tv: (id: string, s: number, e: number) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
     note: 'Fallback',
     reliable: false,
   },
@@ -160,8 +152,8 @@ export default function VideoPlayer({
         ))}
       </div>
 
-      {/* Hindi Dub Banner — only on Server 3 (LetsEmbed) */}
-      {serverIndex === 2 && (
+      {/* Hindi Dub Banner — only on Server 2 (LetsEmbed) */}
+      {serverIndex === 1 && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -171,10 +163,10 @@ export default function VideoPlayer({
         </motion.div>
       )}
 
-      {/* Indian TV notice — show when content might not be available */}
-      {type === 'tv' && (serverIndex === 0 || serverIndex === 1) && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
-          ⚠️ If content unavailable, try Server 3 (LetsEmbed) or Server 6 (AutoEmbed) for Indian TV
+      {/* Indian TV notice */}
+      {type === 'tv' && serverIndex === 0 && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300">
+          💡 Tip: Try Server 2 (LetsEmbed) or Server 5 (AutoEmbed) for Indian TV shows
         </div>
       )}
 
@@ -260,7 +252,10 @@ export default function VideoPlayer({
             {' '}— {currentServer.note}
           </p>
           <p>
-            🟢 Green dot = tested & reliable. Indian TV serials work best on Server 3 (LetsEmbed) or Server 6 (AutoEmbed).
+            🟢 Green dot = tested & reliable. Indian TV serials work best on Server 2 (LetsEmbed) or Server 5 (AutoEmbed).
+          </p>
+          <p className="text-amber-400/90">
+            ℹ️ Note: vidsrc.xyz is blocked by Indian ISPs. We use vidsrc.cc (Server 1) which works in India.
           </p>
           {isLocalhost && (
             <p className="text-amber-400/90 font-medium">
