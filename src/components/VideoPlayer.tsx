@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
 
@@ -84,8 +84,14 @@ export default function VideoPlayer({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [iframeKey, setIframeKey] = useState(0)
+  const [isLocalhost, setIsLocalhost] = useState(false)
 
   const currentServer = SERVERS[serverIndex]
+
+  // Check if running on localhost (client-side only)
+  useEffect(() => {
+    setIsLocalhost(window.location.hostname.includes('localhost'))
+  }, [])
 
   const getEmbedUrl = () => {
     if (type === 'tv') {
@@ -254,7 +260,7 @@ export default function VideoPlayer({
           <p>
             🟢 Green dot = tested & reliable. Indian TV serials work best on Server 2 (LetsEmbed) or Server 5 (AutoEmbed).
           </p>
-          {typeof window !== 'undefined' && window.location.hostname.includes('localhost') && (
+          {isLocalhost && (
             <p className="text-amber-400/90 font-medium">
               ⚠️ Running on localhost - Some servers may show CORS errors in console. This is normal and will work on deployed site (Vercel/Netlify).
             </p>
