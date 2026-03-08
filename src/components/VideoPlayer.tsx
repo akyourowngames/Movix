@@ -2,65 +2,82 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
+import { RefreshCw, Wifi, WifiOff, Info, Zap } from 'lucide-react'
+import { getHindiStream } from '@/lib/streamApi'
+import HLSPlayer from './HLSPlayer'
 
-// ✅ UPDATED SERVER LIST — Optimized for India (vidsrc.xyz removed due to ISP blocks)
+// ✅ UPDATED SERVER LIST — 8StreamApi as primary, optimized for India
 const SERVERS = [
   {
-    name: 'VidSrc CC',
+    name: '8Stream 🎯',
     label: 'Server 1',
+    note: '⚡ 4K • Hindi • No Ads',
+    reliable: true,
+    type: 'hls' as const,
+    badge: 'Best Quality',
+  },
+  {
+    name: 'VidSrc CC',
+    label: 'Server 2',
     movie: (id: string) => `https://vidsrc.cc/v2/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
     note: 'Best for India ✅',
     reliable: true,
+    type: 'iframe' as const,
   },
   {
     name: 'LetsEmbed 🇮🇳',
-    label: 'Server 2',
+    label: 'Server 3',
     movie: (id: string) => `https://letsembed.cc/embed/movie/?id=${id}`,
     tv: (id: string, s: number, e: number) => `https://letsembed.cc/embed/tv/?id=${id}/${s}/${e}`,
     note: 'Hindi dub',
     reliable: true,
+    type: 'iframe' as const,
   },
   {
     name: 'VidLink',
-    label: 'Server 3',
+    label: 'Server 4',
     movie: (id: string) => `https://vidlink.pro/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://vidlink.pro/tv/${id}/${s}/${e}`,
     note: 'Fast + audio switcher',
     reliable: true,
+    type: 'iframe' as const,
   },
   {
     name: 'SmashyStream',
-    label: 'Server 4',
+    label: 'Server 5',
     movie: (id: string) => `https://player.smashy.stream/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://player.smashy.stream/tv/${id}?s=${s}&e=${e}`,
     note: 'Wide library',
     reliable: true,
+    type: 'iframe' as const,
   },
   {
     name: 'AutoEmbed',
-    label: 'Server 5',
+    label: 'Server 6',
     movie: (id: string) => `https://player.autoembed.cc/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`,
     note: 'Backup',
     reliable: true,
+    type: 'iframe' as const,
   },
   {
     name: 'EmbedSu',
-    label: 'Server 6',
+    label: 'Server 7',
     movie: (id: string) => `https://embed.su/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
     note: 'Fallback',
     reliable: false,
+    type: 'iframe' as const,
   },
   {
     name: '2Embed',
-    label: 'Server 7',
+    label: 'Server 8',
     movie: (id: string) => `https://www.2embed.stream/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://www.2embed.stream/embed/tv/${id}/${s}/${e}`,
     note: 'Fallback',
     reliable: false,
+    type: 'iframe' as const,
   },
 ]
 
@@ -75,24 +92,56 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({
   tmdbId,
+  imdbId,
   type = 'movie',
   season = 1,
   episode = 1,
   title,
 }: VideoPlayerProps) {
-  const [serverIndex, setServerIndex] = useState(0)
+  // Skip 8Stream if no IMDB ID
+  const initialServerIndex = imdbId ? 0 : 1
+  
+  const [serverIndex, setServerIndex] = useState(initialServerIndex)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [iframeKey, setIframeKey] = useState(0)
   const [isLocalhost, setIsLocalhost] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [hlsUrl, setHlsUrl] = useState<string | null>(null)
+  const [hlsLanguage, setHlsLanguage] = useState<string>('')
+  const [fetchingHls, setFetchingHls] = useState(false)
 
   const currentServer = SERVERS[serverIndex]
 
-  // Prevent hydration mismatch by only rendering iframe after mount
+  // Fetch HLS stream when 8Stream server is selected
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    if (currentServer.type === 'hls' && imdbId) {
+      setFetchingHls(true)
+      setLoading(true)
+      setError(false)
+      setHlsUrl(null)
+
+      getHindiStream(imdbId, type)
+        .then((result) => {
+          if (result.success && result.url) {
+            setHlsUrl(result.url)
+            setHlsLanguage(result.language || 'Hindi')
+            setLoading(false)
+          } else {
+            console.error('8Stream failed:', result.message)
+            // Auto-fallback to Server 2 (VidSrc CC)
+            setServerIndex(1)
+          }
+        })
+        .catch((err) => {
+          console.error('8Stream error:', err)
+          // Auto-fallback to Server 2
+          setServerIndex(1)
+        })
+        .finally(() => {
+          setFetchingHls(false)
+        })
+    }
+  }, [serverIndex, imdbId, type, currentServer.type])
 
   // Check if running on localhost (client-side only)
   useEffect(() => {
@@ -100,10 +149,12 @@ export default function VideoPlayer({
   }, [])
 
   const getEmbedUrl = () => {
+    if (currentServer.type === 'hls') return ''
+    
     if (type === 'tv') {
-      return currentServer.tv(tmdbId, season, episode)
+      return currentServer.tv!(tmdbId, season, episode)
     }
-    return currentServer.movie(tmdbId)
+    return currentServer.movie!(tmdbId)
   }
 
   const handleServerChange = (index: number) => {
@@ -132,28 +183,53 @@ export default function VideoPlayer({
         <span className="text-white/40 text-xs uppercase tracking-widest mr-2 hidden sm:block">
           Servers:
         </span>
-        {SERVERS.map((s, i) => (
-          <motion.button
-            key={i}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => handleServerChange(i)}
-            className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              serverIndex === i
-                ? 'bg-primary text-black shadow-[0_0_16px_hsla(var(--primary)/0.5)]'
-                : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/10'
-            }`}
-          >
-            {s.label}
-            {s.reliable && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full" />
-            )}
-          </motion.button>
-        ))}
+        {SERVERS.map((s, i) => {
+          // Skip 8Stream if no IMDB ID
+          if (s.type === 'hls' && !imdbId) return null
+          
+          return (
+            <motion.button
+              key={i}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleServerChange(i)}
+              className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                serverIndex === i
+                  ? 'bg-primary text-black shadow-[0_0_16px_hsla(var(--primary)/0.5)]'
+                  : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white border border-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                {s.type === 'hls' && <Zap className="w-3.5 h-3.5" />}
+                {s.label}
+              </span>
+              {s.reliable && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full" />
+              )}
+              {s.badge && serverIndex !== i && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] text-primary whitespace-nowrap">
+                  {s.badge}
+                </span>
+              )}
+            </motion.button>
+          )
+        })}
       </div>
 
-      {/* Hindi Dub Banner — only on Server 2 (LetsEmbed) */}
-      {serverIndex === 1 && (
+      {/* 8Stream Quality Banner */}
+      {serverIndex === 0 && currentServer.type === 'hls' && hlsUrl && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg text-sm text-primary"
+        >
+          <Zap className="w-4 h-4" />
+          Playing in {hlsLanguage} • Premium quality • No ads
+        </motion.div>
+      )}
+
+      {/* Hindi Dub Banner — only on Server 3 (LetsEmbed) */}
+      {serverIndex === 2 && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -164,9 +240,9 @@ export default function VideoPlayer({
       )}
 
       {/* Indian TV notice */}
-      {type === 'tv' && serverIndex === 0 && (
+      {type === 'tv' && serverIndex === 1 && (
         <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300">
-          💡 Tip: Try Server 2 (LetsEmbed) or Server 5 (AutoEmbed) for Indian TV shows
+          💡 Tip: Try Server 3 (LetsEmbed) or Server 6 (AutoEmbed) for Indian TV shows
         </div>
       )}
 
@@ -181,7 +257,9 @@ export default function VideoPlayer({
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
               </div>
             </div>
-            <p className="text-white/60 text-sm mb-1">Loading {currentServer.name}...</p>
+            <p className="text-white/60 text-sm mb-1">
+              {fetchingHls ? 'Fetching Hindi stream...' : `Loading ${currentServer.name}...`}
+            </p>
             {title && <p className="text-white/30 text-xs">{title}</p>}
           </div>
         )}
@@ -219,8 +297,21 @@ export default function VideoPlayer({
           </div>
         )}
 
-        {/* The Iframe - Only render after mount to prevent hydration error */}
-        {mounted && (
+        {/* HLS Player for 8Stream */}
+        {currentServer.type === 'hls' && hlsUrl && !loading && !error && (
+          <HLSPlayer
+            src={hlsUrl}
+            title={title}
+            onError={() => {
+              setError(true)
+              // Auto-fallback to next server
+              setTimeout(() => handleNextServer(), 2000)
+            }}
+          />
+        )}
+
+        {/* The Iframe - Render immediately */}
+        {currentServer.type === 'iframe' && (
           <iframe
             key={`player-${serverIndex}-${iframeKey}-${season}-${episode}`}
             src={getEmbedUrl()}
@@ -251,10 +342,15 @@ export default function VideoPlayer({
             {' '}— {currentServer.note}
           </p>
           <p>
-            🟢 Green dot = tested & reliable. Indian TV serials work best on Server 2 (LetsEmbed) or Server 5 (AutoEmbed).
+            🟢 Green dot = tested & reliable. Indian TV serials work best on Server 3 (LetsEmbed) or Server 6 (AutoEmbed).
           </p>
+          {currentServer.type === 'hls' && (
+            <p className="text-primary/90">
+              ⚡ Server 1 (8Stream) provides direct HLS streams with multiple audio tracks and highest quality.
+            </p>
+          )}
           <p className="text-amber-400/90">
-            ℹ️ Note: vidsrc.xyz is blocked by Indian ISPs. We use vidsrc.cc (Server 1) which works in India.
+            ℹ️ Note: vidsrc.xyz is blocked by Indian ISPs. We use vidsrc.cc (Server 2) which works in India.
           </p>
           {isLocalhost && (
             <p className="text-amber-400/90 font-medium">

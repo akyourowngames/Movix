@@ -146,6 +146,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
         {/* Season & Episode Selector + Video Player */}
         <SeasonSelector 
           tmdbId={params.id}
+          imdbId={show.external_ids?.imdb_id}
           seasons={show.seasons || []}
           showTitle={show.name}
         />

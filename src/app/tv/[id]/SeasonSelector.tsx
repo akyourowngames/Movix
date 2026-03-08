@@ -28,11 +28,12 @@ interface Episode {
 
 interface SeasonSelectorProps {
   tmdbId: string
+  imdbId?: string
   seasons: Season[]
   showTitle: string
 }
 
-export default function SeasonSelector({ tmdbId, seasons, showTitle }: SeasonSelectorProps) {
+export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: SeasonSelectorProps) {
   // Filter out season 0 (specials) and sort
   const validSeasons = seasons
     .filter(s => s.season_number > 0)
@@ -211,6 +212,7 @@ export default function SeasonSelector({ tmdbId, seasons, showTitle }: SeasonSel
       {/* Video Player */}
       <VideoPlayer
         tmdbId={tmdbId}
+        imdbId={imdbId}
         type="tv"
         season={selectedSeason}
         episode={selectedEpisode}

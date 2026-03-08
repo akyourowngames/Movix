@@ -146,7 +146,7 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
         </div>
 
         {/* Video Player */}
-        <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} />
+        <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} type="movie" title={movie.title} />
 
         {/* Similar Movies */}
         {similar.length > 0 && (
