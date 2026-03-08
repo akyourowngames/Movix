@@ -4,25 +4,23 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
 
-// ✅ UPDATED SERVER LIST — Tested & Working March 2025
-// All use TMDB ID directly — no need for IMDB ID
+// ✅ UPDATED SERVER LIST — Correct URLs for TV shows and movies
 const SERVERS = [
   {
-    name: 'VidSrc XYZ',
+    name: 'VidSrc',
     label: 'Server 1',
-    movie: (id: string) => `https://vidsrc.xyz/embed/movie/${id}`,
-    tv: (id: string, s: number, e: number) => `https://vidsrc.xyz/embed/tv/${id}/${s}/${e}`,
-    note: 'Best quality',
+    movie: (id: string) => `https://vidsrc.xyz/embed/movie?tmdb=${id}`,
+    tv: (id: string, s: number, e: number) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
+    note: 'Most content',
     reliable: true,
   },
   {
     name: 'LetsEmbed 🇮🇳',
     label: 'Server 2',
     movie: (id: string) => `https://letsembed.cc/embed/movie/?id=${id}`,
-    tv: (id: string, s: number, e: number) => `https://letsembed.cc/embed/tv/?id=${id}&s=${s}&e=${e}`,
-    note: 'Hindi Dub',
+    tv: (id: string, s: number, e: number) => `https://letsembed.cc/embed/tv/?id=${id}/${s}/${e}`,
+    note: 'Hindi dub + Indian TV',
     reliable: true,
-    hindiDub: true,
   },
   {
     name: 'VidSrc CC',
@@ -43,16 +41,16 @@ const SERVERS = [
   {
     name: 'AutoEmbed',
     label: 'Server 5',
-    movie: (id: string) => `https://autoembed.co/movie/tmdb/${id}`,
-    tv: (id: string, s: number, e: number) => `https://autoembed.co/tv/tmdb/${id}-${s}-${e}`,
-    note: 'Backup',
+    movie: (id: string) => `https://player.autoembed.cc/embed/movie/${id}`,
+    tv: (id: string, s: number, e: number) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`,
+    note: 'Indian content',
     reliable: true,
   },
   {
     name: '2Embed',
     label: 'Server 6',
     movie: (id: string) => `https://www.2embed.stream/embed/movie/${id}`,
-    tv: (id: string, s: number, e: number) => `https://www.2embed.stream/embedtv/${id}&s=${s}&e=${e}`,
+    tv: (id: string, s: number, e: number) => `https://www.2embed.stream/embed/tv/${id}/${s}/${e}`,
     note: 'Fallback',
     reliable: false,
   },
@@ -142,6 +140,24 @@ export default function VideoPlayer({
         ))}
       </div>
 
+      {/* Hindi Dub Banner — only on Server 2 */}
+      {serverIndex === 1 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-lg text-sm text-orange-300"
+        >
+          🇮🇳 Hindi dub available — use the language selector inside the player
+        </motion.div>
+      )}
+
+      {/* Indian TV notice — show when content might not be available */}
+      {type === 'tv' && serverIndex === 0 && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
+          ⚠️ Indian TV serials may not be on Server 1 — try Server 2 or 4 for better results
+        </div>
+      )}
+
       {/* Hindi Dub Banner - Only shows for Server 2 (LetsEmbed) */}
       {currentServer.hindiDub && (
         <motion.div
@@ -178,9 +194,9 @@ export default function VideoPlayer({
             <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
               <WifiOff className="w-8 h-8 text-red-400" />
             </div>
-            <h3 className="text-white font-semibold mb-2">{currentServer.name} is unavailable</h3>
+            <h3 className="text-white font-semibold mb-2">{currentServer.name} unavailable</h3>
             <p className="text-white/50 text-sm mb-6 max-w-sm">
-              This server may be temporarily down or blocked in your region. Try another server.
+              Try another server — content may not be indexed here.
             </p>
             <div className="flex gap-3">
               <motion.button
@@ -207,7 +223,7 @@ export default function VideoPlayer({
 
         {/* The Iframe */}
         <iframe
-          key={`player-${serverIndex}-${iframeKey}`}
+          key={`player-${serverIndex}-${iframeKey}-${season}-${episode}`}
           src={getEmbedUrl()}
           className={`w-full h-full transition-opacity duration-500 ${
             loading || error ? 'opacity-0' : 'opacity-100'
@@ -232,12 +248,11 @@ export default function VideoPlayer({
         <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
         <div className="text-xs text-white/50 space-y-1">
           <p>
-            Currently playing on <span className="text-primary font-medium">{currentServer.name}</span>
+            Playing on <span className="text-primary font-medium">{currentServer.name}</span>
             {' '}— {currentServer.note}
           </p>
           <p>
-            🟢 Green dot = tested & reliable server. 
-            If video shows blank, switch server — content may not be available on this source.
+            🟢 Green dot = tested & reliable. Indian TV serials work best on Server 2 (LetsEmbed) or Server 5 (AutoEmbed).
           </p>
           {typeof window !== 'undefined' && window.location.hostname.includes('localhost') && (
             <p className="text-amber-400/90 font-medium">

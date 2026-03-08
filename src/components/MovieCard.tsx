@@ -1,9 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Plus, Play, Info, Star } from 'lucide-react'
+import { Plus, Play, Star } from 'lucide-react'
 import type { Movie } from '@/lib/data'
-import Image from 'next/image'
 import Link from 'next/link'
 
 interface MovieCardProps {
@@ -27,6 +26,7 @@ export default function MovieCard({ movie, index, type = 'movie' }: MovieCardPro
         >
             {/* Perspective tilt effect handled by CSS via hover scale */}
             <div className="absolute inset-0 bg-background/20 transition-transform duration-500 group-hover:scale-110 z-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={movie.poster}
                     alt={movie.title}

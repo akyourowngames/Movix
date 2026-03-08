@@ -47,6 +47,7 @@ export default function HeroSection() {
       handleNext()
     }, 5000)
     return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, movies.length])
 
   const handleNext = () => {

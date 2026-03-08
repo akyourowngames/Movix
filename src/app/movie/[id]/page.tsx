@@ -3,6 +3,7 @@ import VideoPlayer from '@/components/VideoPlayer'
 import { Star, Clock, Calendar, Users } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default async function MoviePage({ params }: { params: { id: string } }) {
   try {
@@ -25,11 +26,12 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
       {movie.backdrop_path && (
         <div className="absolute top-0 left-0 w-full h-[50vh] md:h-[70vh] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background z-10" />
-          <img
+          <Image
             src={getImageUrl(movie.backdrop_path, 'original')}
             alt={movie.title}
-            className="w-full h-full object-cover"
-            loading="eager"
+            fill
+            className="object-cover"
+            priority
           />
         </div>
       )}
@@ -39,12 +41,15 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
           {/* Poster */}
           <div className="flex justify-center md:justify-start">
             {movie.poster_path && (
-              <img
-                src={getImageUrl(movie.poster_path)}
-                alt={movie.title}
-                className="w-48 sm:w-56 md:w-full rounded-xl shadow-2xl"
-                loading="eager"
-              />
+              <div className="relative w-48 sm:w-56 md:w-full aspect-[2/3]">
+                <Image
+                  src={getImageUrl(movie.poster_path)}
+                  alt={movie.title}
+                  fill
+                  className="rounded-xl shadow-2xl object-cover"
+                  priority
+                />
+              </div>
             )}
           </div>
 
@@ -97,12 +102,13 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
                 <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
                   {cast.map((person: any) => (
                     <div key={person.id} className="flex-shrink-0 text-center">
-                      <div className="w-20 h-20 rounded-full overflow-hidden mb-2 bg-white/5">
+                      <div className="w-20 h-20 rounded-full overflow-hidden mb-2 bg-white/5 relative">
                         {person.profile_path ? (
-                          <img
+                          <Image
                             src={getImageUrl(person.profile_path, 'w500')}
                             alt={person.name}
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-white/40">
@@ -132,10 +138,11 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
                 <Link key={m.id} href={`/movie/${m.id}`}>
                   <div className="group cursor-pointer">
                     <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
-                      <img
+                      <Image
                         src={getImageUrl(m.poster_path)}
                         alt={m.title}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-110"
                       />
                       <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/80 px-2 py-1 rounded">
                         <Star className="w-3 h-3 fill-primary text-primary" />
