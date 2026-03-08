@@ -4,11 +4,19 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
 
-// ✅ UPDATED SERVER LIST — Correct URLs for TV shows and movies
+// ✅ UPDATED SERVER LIST — SmashyStream added for better coverage
 const SERVERS = [
   {
-    name: 'VidSrc',
+    name: 'SmashyStream',
     label: 'Server 1',
+    movie: (id: string) => `https://player.smashy.stream/movie/${id}`,
+    tv: (id: string, s: number, e: number) => `https://player.smashy.stream/tv/${id}?s=${s}&e=${e}`,
+    note: 'Best coverage',
+    reliable: true,
+  },
+  {
+    name: 'VidSrc',
+    label: 'Server 2',
     movie: (id: string) => `https://vidsrc.xyz/embed/movie?tmdb=${id}`,
     tv: (id: string, s: number, e: number) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
     note: 'Most content',
@@ -16,7 +24,7 @@ const SERVERS = [
   },
   {
     name: 'LetsEmbed 🇮🇳',
-    label: 'Server 2',
+    label: 'Server 3',
     movie: (id: string) => `https://letsembed.cc/embed/movie/?id=${id}`,
     tv: (id: string, s: number, e: number) => `https://letsembed.cc/embed/tv/?id=${id}/${s}/${e}`,
     note: 'Hindi dub + Indian TV',
@@ -24,7 +32,7 @@ const SERVERS = [
   },
   {
     name: 'VidSrc CC',
-    label: 'Server 3',
+    label: 'Server 4',
     movie: (id: string) => `https://vidsrc.cc/v2/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
     note: 'Multi-source',
@@ -32,7 +40,7 @@ const SERVERS = [
   },
   {
     name: 'VidLink',
-    label: 'Server 4',
+    label: 'Server 5',
     movie: (id: string) => `https://vidlink.pro/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://vidlink.pro/tv/${id}/${s}/${e}`,
     note: 'Fast loading',
@@ -40,7 +48,7 @@ const SERVERS = [
   },
   {
     name: 'AutoEmbed',
-    label: 'Server 5',
+    label: 'Server 6',
     movie: (id: string) => `https://player.autoembed.cc/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`,
     note: 'Indian content',
@@ -48,7 +56,7 @@ const SERVERS = [
   },
   {
     name: '2Embed',
-    label: 'Server 6',
+    label: 'Server 7',
     movie: (id: string) => `https://www.2embed.stream/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://www.2embed.stream/embed/tv/${id}/${s}/${e}`,
     note: 'Fallback',
@@ -56,7 +64,7 @@ const SERVERS = [
   },
   {
     name: 'EmbedSu',
-    label: 'Server 7',
+    label: 'Server 8',
     movie: (id: string) => `https://embed.su/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
     note: 'Fallback',
@@ -85,8 +93,14 @@ export default function VideoPlayer({
   const [error, setError] = useState(false)
   const [iframeKey, setIframeKey] = useState(0)
   const [isLocalhost, setIsLocalhost] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   const currentServer = SERVERS[serverIndex]
+
+  // Prevent hydration mismatch by only rendering iframe after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Check if running on localhost (client-side only)
   useEffect(() => {
@@ -146,8 +160,8 @@ export default function VideoPlayer({
         ))}
       </div>
 
-      {/* Hindi Dub Banner — only on Server 2 */}
-      {serverIndex === 1 && (
+      {/* Hindi Dub Banner — only on Server 3 (LetsEmbed) */}
+      {serverIndex === 2 && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -158,9 +172,9 @@ export default function VideoPlayer({
       )}
 
       {/* Indian TV notice — show when content might not be available */}
-      {type === 'tv' && serverIndex === 0 && (
+      {type === 'tv' && (serverIndex === 0 || serverIndex === 1) && (
         <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300">
-          ⚠️ Indian TV serials may not be on Server 1 — try Server 2 or 5 for better results
+          ⚠️ If content unavailable, try Server 3 (LetsEmbed) or Server 6 (AutoEmbed) for Indian TV
         </div>
       )}
 
@@ -213,26 +227,28 @@ export default function VideoPlayer({
           </div>
         )}
 
-        {/* The Iframe */}
-        <iframe
-          key={`player-${serverIndex}-${iframeKey}-${season}-${episode}`}
-          src={getEmbedUrl()}
-          className={`w-full h-full transition-opacity duration-500 ${
-            loading || error ? 'opacity-0' : 'opacity-100'
-          }`}
-          allowFullScreen
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          referrerPolicy="no-referrer-when-downgrade"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
-          onLoad={() => {
-            setLoading(false)
-            setError(false)
-          }}
-          onError={() => {
-            setLoading(false)
-            setError(true)
-          }}
-        />
+        {/* The Iframe - Only render after mount to prevent hydration error */}
+        {mounted && (
+          <iframe
+            key={`player-${serverIndex}-${iframeKey}-${season}-${episode}`}
+            src={getEmbedUrl()}
+            className={`w-full h-full transition-opacity duration-500 ${
+              loading || error ? 'opacity-0' : 'opacity-100'
+            }`}
+            allowFullScreen
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            referrerPolicy="no-referrer-when-downgrade"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
+            onLoad={() => {
+              setLoading(false)
+              setError(false)
+            }}
+            onError={() => {
+              setLoading(false)
+              setError(true)
+            }}
+          />
+        )}
       </div>
 
       {/* Info Bar */}
@@ -244,7 +260,7 @@ export default function VideoPlayer({
             {' '}— {currentServer.note}
           </p>
           <p>
-            🟢 Green dot = tested & reliable. Indian TV serials work best on Server 2 (LetsEmbed) or Server 5 (AutoEmbed).
+            🟢 Green dot = tested & reliable. Indian TV serials work best on Server 3 (LetsEmbed) or Server 6 (AutoEmbed).
           </p>
           {isLocalhost && (
             <p className="text-amber-400/90 font-medium">
