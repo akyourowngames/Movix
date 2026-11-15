@@ -1,9 +1,11 @@
-import { getTVDetails, getImageUrl } from '@/lib/tmdb'
+import { getTVDetails } from '@/lib/tmdb'
+import { getImageUrl } from '@/lib/catalog'
 import { Star, Calendar, Users, Tv } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import SeasonSelector from './SeasonSelector'
+import TrackView from '@/components/TrackView'
 
 export default async function TVPage({ params }: { params: { id: string } }) {
   try {
@@ -41,12 +43,20 @@ export default async function TVPage({ params }: { params: { id: string } }) {
 
     return (
     <main className="min-h-screen bg-background pt-20 pb-32">
+      <TrackView
+        id={show.id}
+        type="tv"
+        title={show.name}
+        poster={show.poster_path}
+        genres={show.genres?.map((genre: Genre) => genre.id) || []}
+        language={show.original_language}
+      />
       {/* Backdrop */}
       {show.backdrop_path && (
         <div className="absolute top-0 left-0 w-full h-[50vh] md:h-[70vh] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background z-10" />
           <Image
-            src={getImageUrl(show.backdrop_path, 'original')}
+            src={getImageUrl(show.backdrop_path, 'w1280')}
             alt={show.name}
             fill
             className="object-cover"

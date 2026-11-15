@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Play } from 'lucide-react'
 import VideoPlayer from '@/components/VideoPlayer'
-import { getSeasonEpisodes } from '@/lib/tmdb'
 
 interface Season {
   id: number
@@ -33,6 +32,8 @@ interface SeasonSelectorProps {
   showTitle: string
 }
 
+const episodeCache = new Map<string, Episode[]>()
+
 export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: SeasonSelectorProps) {
   // Filter out season 0 (specials) and sort
   const validSeasons = seasons
@@ -48,20 +49,40 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
 
   // Fetch episodes when season changes
   useEffect(() => {
-    const fetchEpisodes = async () => {
-      setLoading(true)
-      try {
-        const data = await getSeasonEpisodes(tmdbId, selectedSeason)
-        setEpisodes(data.episodes || [])
-        setSelectedEpisode(1) // Reset to first episode
-      } catch {
-        console.error('Failed to fetch episodes')
-        setEpisodes([])
-      }
+    const key = `${tmdbId}:${selectedSeason}`
+    const cached = episodeCache.get(key)
+
+    if (cached) {
+      setEpisodes(cached)
+      setSelectedEpisode(1)
       setLoading(false)
+      return
     }
 
-    fetchEpisodes()
+    const controller = new AbortController()
+    setLoading(true)
+
+    fetch(`/api/season?tv=${tmdbId}&season=${selectedSeason}`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        const results: Episode[] = data.episodes || []
+        episodeCache.set(key, results)
+        setEpisodes(results)
+        setSelectedEpisode(1) // Reset to first episode
+        setLoading(false)
+      })
+      .catch((err) => {
+        if ((err as Error).name === 'AbortError') return
+        setEpisodes([])
+        setLoading(false)
+      })
+
+    return () => controller.abort()
   }, [tmdbId, selectedSeason])
 
   const currentSeason = validSeasons.find(s => s.season_number === selectedSeason)

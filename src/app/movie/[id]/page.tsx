@@ -1,5 +1,7 @@
-import { getMovieDetails, getImageUrl } from '@/lib/tmdb'
+import { getMovieDetails } from '@/lib/tmdb'
+import { getImageUrl } from '@/lib/catalog'
 import VideoPlayer from '@/components/VideoPlayer'
+import TrackView from '@/components/TrackView'
 import { Star, Clock, Calendar, Users } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -41,12 +43,20 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
 
     return (
     <main className="min-h-screen bg-background pt-20 pb-32">
+      <TrackView
+        id={movie.id}
+        type="movie"
+        title={movie.title}
+        poster={movie.poster_path}
+        genres={movie.genres?.map((genre: Genre) => genre.id) || []}
+        language={movie.original_language}
+      />
       {/* Backdrop */}
       {movie.backdrop_path && (
         <div className="absolute top-0 left-0 w-full h-[50vh] md:h-[70vh] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background z-10" />
           <Image
-            src={getImageUrl(movie.backdrop_path, 'original')}
+            src={getImageUrl(movie.backdrop_path, 'w1280')}
             alt={movie.title}
             fill
             className="object-cover"

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { searchMovies, searchWebSeries, getImageUrl, type TMDBMovie } from '@/lib/tmdb'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import Link from 'next/link'
-import { Search, Star, Filter, X, Film, Tv } from 'lucide-react'
+import { Search, Star, Filter, X, Film, Tv, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
+import { getImageUrl, type CatalogItem } from '@/lib/catalog'
 
 const GENRES = [
   { id: 28, name: 'Action', hindi: 'एक्शन' },
@@ -16,90 +16,117 @@ const GENRES = [
   { id: 27, name: 'Horror', hindi: 'हॉरर' },
 ]
 
+const CACHE_TTL = 5 * 60 * 1000
+const cache = new Map<string, { items: CatalogItem[]; ts: number }>()
+
+function SearchSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="animate-pulse">
+          <div className="aspect-[2/3] rounded-xl bg-white/5 mb-3" />
+          <div className="h-4 bg-white/5 rounded w-3/4 mb-2" />
+          <div className="h-3 bg-white/5 rounded w-1/3" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function SearchPageContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
-  
-  interface SearchResult extends TMDBMovie {
-    media_type: 'movie' | 'tv'
-  }
-  
+
   const [query, setQuery] = useState(initialQuery)
-  const [movies, setMovies] = useState<SearchResult[]>([])
+  const [items, setItems] = useState<CatalogItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [showFilters, setShowFilters] = useState(true)
   const [selectedGenres, setSelectedGenres] = useState<number[]>([])
   const [minRating, setMinRating] = useState(0)
-  const [yearRange, setYearRange] = useState([1980, 2024])
+  const [yearRange, setYearRange] = useState([1980, new Date().getFullYear()])
   const [contentType, setContentType] = useState<'movie' | 'tv' | 'both'>('both')
 
+  // Keep the input in sync when navigating here with ?q= from the navbar
   useEffect(() => {
-    if (initialQuery) {
-      handleSearch()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (initialQuery) setQuery(initialQuery)
   }, [initialQuery])
 
   useEffect(() => {
-    const delaySearch = setTimeout(() => {
-      if (query.length > 2) {
-        handleSearch()
-      } else if (query.length === 0) {
-        setMovies([])
-      }
-    }, 500)
-    return () => clearTimeout(delaySearch)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedGenres, minRating, yearRange, contentType])
+    const q = query.trim()
 
-  const handleSearch = async () => {
-    if (!query.trim()) return
-    
-    setLoading(true)
-    
-    let results: SearchResult[] = []
-    
-    if (contentType === 'both') {
-      const [movieData, tvData] = await Promise.all([
-        searchMovies(query),
-        searchWebSeries(query)
-      ])
-      results = [
-        ...(movieData.results || []).map((m: TMDBMovie) => ({ ...m, media_type: 'movie' as const })),
-        ...(tvData.results || []).map((t: TMDBMovie) => ({ ...t, media_type: 'tv' as const }))
-      ]
-    } else if (contentType === 'movie') {
-      const data = await searchMovies(query)
-      results = (data.results || []).map((m: TMDBMovie) => ({ ...m, media_type: 'movie' as const }))
-    } else {
-      const data = await searchWebSeries(query)
-      results = (data.results || []).map((t: TMDBMovie) => ({ ...t, media_type: 'tv' as const }))
+    if (q.length < 2) {
+      setItems([])
+      setLoading(false)
+      setError(false)
+      return
     }
-    
-    // Apply filters
+
+    const key = `${contentType}:${q.toLowerCase()}`
+    const cached = cache.get(key)
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      setItems(cached.items)
+      setLoading(false)
+      setError(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setLoading(true)
+    setError(false)
+
+    const timer = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(q)}&type=${contentType}`, {
+        signal: controller.signal,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          return res.json()
+        })
+        .then((data) => {
+          const results: CatalogItem[] = data.results || []
+          cache.set(key, { items: results, ts: Date.now() })
+          setItems(results)
+          setLoading(false)
+        })
+        .catch((err) => {
+          if ((err as Error).name === 'AbortError') return
+          setError(true)
+          setLoading(false)
+        })
+    }, 350)
+
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [query, contentType, reloadKey])
+
+  // Filters run locally — changing them never re-triggers a network request
+  const results = useMemo(() => {
+    let filtered = items
+
     if (selectedGenres.length > 0) {
-      results = results.filter((m: SearchResult) => 
-        m.genre_ids?.some((g: number) => selectedGenres.includes(g))
+      filtered = filtered.filter((item) =>
+        item.genre_ids.some((g) => selectedGenres.includes(g))
       )
     }
     if (minRating > 0) {
-      results = results.filter((m: SearchResult) => m.vote_average >= minRating)
+      filtered = filtered.filter((item) => item.vote_average >= minRating)
     }
+
     const [minYear, maxYear] = yearRange
-    results = results.filter((m: SearchResult) => {
-      const dateField = m.media_type === 'tv' ? (m.first_air_date || m.release_date) : (m.release_date || m.first_air_date)
-      if (!dateField) return true // Include items without dates
-      const year = new Date(dateField).getFullYear()
+    return filtered.filter((item) => {
+      if (!item.release_date) return true
+      const year = new Date(item.release_date).getFullYear()
       return year >= minYear && year <= maxYear
     })
-    
-    setMovies(results)
-    setLoading(false)
-  }
+  }, [items, selectedGenres, minRating, yearRange])
 
   const toggleGenre = (id: number) => {
-    setSelectedGenres(prev => 
-      prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+    setSelectedGenres((prev) =>
+      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
     )
   }
 
@@ -244,57 +271,60 @@ function SearchPageContent() {
               </button>
             )}
 
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            {error ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4 text-white/60">
+                <p>Search failed. Please retry.</p>
+                <button
+                  onClick={() => setReloadKey((k) => k + 1)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Retry
+                </button>
               </div>
-            ) : movies.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-                {movies.map((item: SearchResult, index) => {
+            ) : loading && items.length === 0 ? (
+              <SearchSkeleton />
+            ) : results.length > 0 ? (
+              <div
+                className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 transition-opacity duration-300 ${
+                  loading ? 'opacity-50' : 'opacity-100'
+                }`}
+              >
+                {results.map((item) => {
                   const isTV = item.media_type === 'tv'
-                  const title = isTV ? (item.name || item.title || 'Untitled') : (item.title || item.name || 'Untitled')
-                  const date = isTV ? (item.first_air_date || item.release_date || '') : (item.release_date || item.first_air_date || '')
                   const href = isTV ? `/tv/${item.id}` : `/movie/${item.id}`
-                  
+
                   return (
-                    <motion.div
-                      key={`${item.media_type}-${item.id}`}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Link href={href}>
-                        <div className="group cursor-pointer">
-                          <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={getImageUrl(item.poster_path)}
-                              alt={title}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                            />
-                            <div className="absolute top-2 left-2 bg-black/80 backdrop-blur px-2 py-1 rounded-lg">
-                              {isTV ? <Tv className="w-3 h-3" /> : <Film className="w-3 h-3" />}
-                            </div>
-                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/80 backdrop-blur px-2 py-1 rounded-lg">
-                              <Star className="w-3 h-3 fill-primary text-primary" />
-                              <span className="text-xs font-bold">{item.vote_average.toFixed(1)}</span>
-                            </div>
-                          </div>
-                          <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
-                            {title}
-                          </h3>
-                          <p className="text-xs text-white/60 mt-1">
-                            {date ? new Date(date).getFullYear() : 'N/A'}
-                          </p>
+                    <Link key={`${item.media_type}-${item.id}`} href={href} className="group cursor-pointer">
+                      <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={getImageUrl(item.poster_path, 'w342')}
+                          alt={item.title}
+                          loading="lazy"
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                        <div className="absolute top-2 left-2 bg-black/80 backdrop-blur px-2 py-1 rounded-lg">
+                          {isTV ? <Tv className="w-3 h-3" /> : <Film className="w-3 h-3" />}
                         </div>
-                      </Link>
-                    </motion.div>
+                        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/80 backdrop-blur px-2 py-1 rounded-lg">
+                          <Star className="w-3 h-3 fill-primary text-primary" />
+                          <span className="text-xs font-bold">{item.vote_average.toFixed(1)}</span>
+                        </div>
+                      </div>
+                      <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                        {item.title}
+                      </h3>
+                      <p className="text-xs text-white/60 mt-1">
+                        {item.release_date ? new Date(item.release_date).getFullYear() : 'N/A'}
+                      </p>
+                    </Link>
                   )
                 })}
               </div>
-            ) : query.length > 2 ? (
+            ) : query.trim().length >= 2 ? (
               <div className="text-center py-20 text-white/60">
-                No movies found. Try different keywords.
+                No movies found. Try different keywords or filters.
               </div>
             ) : (
               <div className="text-center py-20 text-white/60">
@@ -313,9 +343,7 @@ export default function SearchPage() {
     <Suspense fallback={
       <main className="min-h-screen bg-background pt-24 pb-32">
         <div className="container mx-auto px-6">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-          </div>
+          <SearchSkeleton />
         </div>
       </main>
     }>

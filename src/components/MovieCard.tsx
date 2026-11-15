@@ -9,18 +9,21 @@ interface MovieCardProps {
     movie: Movie;
     index: number;
     type?: 'movie' | 'tv';
+    variant?: 'default' | 'ranked';
 }
 
-export default function MovieCard({ movie, index, type = 'movie' }: MovieCardProps) {
-    const href = type === 'tv' ? `/tv/${movie.id}` : `/movie/${movie.id}`
-    
+export default function MovieCard({ movie, index, type = 'movie', variant = 'default' }: MovieCardProps) {
+    const resolvedType = movie.mediaType ?? type
+    const href = resolvedType === 'tv' ? `/tv/${movie.id}` : `/movie/${movie.id}`
+    const showRank = variant === 'ranked' && typeof movie.rank === 'number' && movie.rank <= 99
+
     return (
-        <Link href={href}>
+        <Link href={href} prefetch={false}>
         <motion.div
             initial={{ opacity: 0, x: 50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
+            transition={{ duration: 0.5, delay: Math.min(index, 8) * 0.06 }}
             whileHover="hover"
             className="relative flex-none w-[200px] md:w-[240px] aspect-[2/3] rounded-xl overflow-hidden cursor-pointer group origin-center perspective-1000"
         >
@@ -30,13 +33,46 @@ export default function MovieCard({ movie, index, type = 'movie' }: MovieCardPro
                 <img
                     src={movie.poster}
                     alt={movie.title}
+                    loading="lazy"
+                    draggable={false}
                     className="w-full h-full object-cover rounded-xl"
                 />
             </div>
 
+            {showRank && (
+                <span
+                    aria-hidden
+                    className="pointer-events-none absolute -bottom-1 left-1 z-[5] font-display font-black leading-none tabular-nums text-[76px] md:text-[92px] text-transparent"
+                    style={{ WebkitTextStroke: '2px rgba(255,255,255,0.85)' }}
+                >
+                    {movie.rank}
+                </span>
+            )}
+
             <div className="absolute top-2 right-2 rounded bg-background/80 backdrop-blur-md px-2 py-1 text-xs font-bold ring-1 ring-white/20 z-20">
                 {movie.quality}
             </div>
+
+            {movie.isNew && (
+                <span className="absolute top-2 left-2 rounded bg-primary px-2 py-0.5 text-[10px] font-bold text-black z-20">
+                    NEW
+                </span>
+            )}
+
+            {(movie.language || (variant === 'ranked' && resolvedType === 'tv')) && (
+                <div className="absolute bottom-2 right-2 z-[6] flex gap-1">
+                    {variant === 'ranked' && resolvedType === 'tv' && (
+                        <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white/80">
+                            Series
+                        </span>
+                    )}
+                    {movie.language && (
+                        <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white/80">
+                            {movie.language}
+                        </span>
+                    )}
+                </div>
+            )}
 
             {/* Hover Overlay */}
             <motion.div

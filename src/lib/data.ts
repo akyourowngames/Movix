@@ -3,14 +3,18 @@ export interface Movie {
     title: string;
     hindiTitle?: string;
     poster: string;
-    backdrop: string;
+    backdrop?: string;
     genre: string[];
-    year: number;
-    duration: string;
+    year?: number;
+    duration?: string;
     rating: number;
     quality: string;
-    description: string;
+    description?: string;
     imdb_id?: string;
+    rank?: number;
+    mediaType?: 'movie' | 'tv';
+    isNew?: boolean;
+    language?: 'HI' | 'EN' | 'GL';
 }
 
 export const MOVIE_DATA: Record<string, Movie[]> = {

@@ -1,76 +1,33 @@
+import { Fragment } from 'react'
 import HeroSection from '@/components/HeroSection'
 import MovieCarousel from '@/components/MovieCarousel'
-import { getTrendingHindi, getNewReleases, getTrendingWebSeries, getImageUrl, type TMDBMovie } from '@/lib/tmdb'
-import type { Movie } from '@/lib/data'
+import PersonalRows from '@/components/PersonalRows'
+import { getHomeFeed } from '@/lib/homeFeed'
 
-async function transformTMDBToMovie(tmdbMovies: TMDBMovie[], type: 'movie' | 'tv' = 'movie'): Promise<Movie[]> {
-  return tmdbMovies.map((item) => {
-    const title = type === 'tv' ? (item.name || item.title) : (item.title || item.name || 'Untitled')
-    const originalTitle = type === 'tv' 
-      ? (item.original_name || item.original_title)
-      : (item.original_title || item.original_name)
-    const releaseDate = type === 'tv' 
-      ? (item.first_air_date || item.release_date || '')
-      : (item.release_date || item.first_air_date || '')
-    
-    return {
-      id: item.id.toString(),
-      title,
-      hindiTitle: originalTitle !== title ? originalTitle : undefined,
-      poster: getImageUrl(item.poster_path),
-      backdrop: getImageUrl(item.backdrop_path, 'original'),
-      genre: [],
-      year: releaseDate ? new Date(releaseDate).getFullYear() : new Date().getFullYear(),
-      duration: type === 'tv' ? 'Series' : '2h 30m',
-      rating: item.vote_average,
-      quality: item.vote_average >= 7 ? '4K' : 'HD',
-      description: item.overview,
-    }
-  })
-}
+export const revalidate = 900
 
 export default async function Home() {
-  const [trendingData, newReleasesData, popularData, webSeriesData] = await Promise.all([
-    getTrendingHindi(1),
-    getNewReleases(1),
-    getTrendingHindi(2),
-    getTrendingWebSeries(1),
-  ])
-
-  const trending = await transformTMDBToMovie(trendingData.results?.slice(0, 15) || [])
-  const newReleases = await transformTMDBToMovie(newReleasesData.results?.slice(0, 15) || [])
-  const popular = await transformTMDBToMovie(popularData.results?.slice(0, 15) || [])
-  const webSeries = await transformTMDBToMovie(webSeriesData.results?.slice(0, 15) || [], 'tv')
+  const feed = await getHomeFeed()
 
   return (
     <main className="min-h-screen bg-background pb-32">
-      <HeroSection />
+      <HeroSection movies={feed.hero} />
 
       <div className="relative z-30 -mt-32 pt-16">
-        <MovieCarousel
-          title="Trending Now"
-          hindiTitle="ट्रेंडिंग अभी"
-          movies={trending}
-        />
+        {feed.rows.map((row, index) => (
+          <Fragment key={row.key}>
+            <MovieCarousel
+              title={row.title}
+              hindiTitle={row.hindiTitle}
+              subtitle={row.subtitle}
+              variant={row.variant}
+              movies={row.movies}
+            />
+            {index === 0 && <PersonalRows kind="for-you" />}
+          </Fragment>
+        ))}
 
-        <MovieCarousel
-          title="Trending Web Series"
-          hindiTitle="ट्रेंडिंग वेब सीरीज़"
-          movies={webSeries}
-          type="tv"
-        />
-
-        <MovieCarousel
-          title="New Releases"
-          hindiTitle="नई रिलीज़"
-          movies={newReleases}
-        />
-
-        <MovieCarousel
-          title="Popular"
-          hindiTitle="लोकप्रिय"
-          movies={popular}
-        />
+        <PersonalRows kind="because-watched" />
       </div>
     </main>
   )

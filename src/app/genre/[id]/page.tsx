@@ -1,4 +1,5 @@
-import { getImageUrl } from '@/lib/tmdb'
+import { getImageUrl } from '@/lib/catalog'
+import { getMoviesByGenre } from '@/lib/tmdb'
 import Link from 'next/link'
 import { Star } from 'lucide-react'
 import { notFound } from 'next/navigation'
@@ -10,14 +11,6 @@ const GENRES: Record<string, { name: string; hindi: string }> = {
   '53': { name: 'Thriller', hindi: 'थ्रिलर' },
   '10749': { name: 'Romance', hindi: 'रोमांस' },
   '27': { name: 'Horror', hindi: 'हॉरर' },
-}
-
-async function getMoviesByGenre(genreId: string) {
-  const KEY = process.env.NEXT_PUBLIC_TMDB_KEY
-  const res = await fetch(
-    `https://api.themoviedb.org/3/discover/movie?api_key=${KEY}&with_genres=${genreId}&with_original_language=hi&sort_by=popularity.desc&page=1`
-  )
-  return res.json()
 }
 
 export default async function GenrePage({ params }: { params: { id: string } }) {

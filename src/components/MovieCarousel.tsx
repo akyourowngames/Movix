@@ -8,11 +8,13 @@ import type { Movie } from '@/lib/data'
 interface MovieCarouselProps {
     title: string;
     hindiTitle?: string;
+    subtitle?: string;
     movies: Movie[];
     type?: 'movie' | 'tv';
+    variant?: 'default' | 'ranked';
 }
 
-export default function MovieCarousel({ title, hindiTitle, movies, type = 'movie' }: MovieCarouselProps) {
+export default function MovieCarousel({ title, hindiTitle, subtitle, movies, type = 'movie', variant = 'default' }: MovieCarouselProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
 
     const scrollLeft = () => {
@@ -34,7 +36,10 @@ export default function MovieCarousel({ title, hindiTitle, movies, type = 'movie
                     <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 mb-2 truncate">
                         {hindiTitle || title}
                     </h2>
-                    <p className="text-white/50 text-xs md:text-sm tracking-widest uppercase">{title}</p>
+                    <p className="text-white/50 text-xs md:text-sm tracking-widest uppercase">
+                        {title}
+                        {subtitle ? <span className="text-white/30"> · {subtitle}</span> : null}
+                    </p>
                 </div>
 
                 <div className="hidden md:flex gap-2 flex-shrink-0 ml-4">
@@ -65,7 +70,12 @@ export default function MovieCarousel({ title, hindiTitle, movies, type = 'movie
                 >
                     {movies.map((movie, index) => (
                         <div key={movie.id} className="snap-start shrink-0">
-                            <MovieCard movie={movie} index={index} type={type} />
+                            <MovieCard
+                                movie={movie}
+                                index={index}
+                                type={movie.mediaType ?? type}
+                                variant={variant}
+                            />
                         </div>
                     ))}
                 </div>

@@ -5,50 +5,46 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
-interface FeaturedMovie {
+export interface HeroMovie {
   id: number
   title: string
-  original_title: string
-  backdrop_path: string
+  original_title?: string
+  backdrop_path: string | null
   overview: string
+  media_type?: 'movie' | 'tv'
 }
 
-export default function HeroSection() {
-  const [movies, setMovies] = useState<FeaturedMovie[]>([])
+interface HeroSectionProps {
+  movies: HeroMovie[]
+}
+
+const backdropUrl = (path: string | null) =>
+  path ? `https://image.tmdb.org/t/p/w1280${path}` : ''
+
+export default function HeroSection({ movies }: HeroSectionProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [direction, setDirection] = useState(0)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Fetch trending Hindi movies from TMDB
-    const fetchMovies = async () => {
-      try {
-        const KEY = process.env.NEXT_PUBLIC_TMDB_KEY
-        const res = await fetch(
-          `https://api.themoviedb.org/3/discover/movie?api_key=${KEY}&with_original_language=hi&sort_by=popularity.desc&page=1`
-        )
-        const data = await res.json()
-        setMovies(data.results?.slice(0, 5) || [])
-        setLoading(false)
-      } catch (error) {
-        console.error('Failed to fetch movies:', error)
-        setLoading(false)
-      }
-    }
-    fetchMovies()
-  }, [])
 
   const currentMovie = movies[currentIndex]
 
-  // Auto-advance carousel every 5 seconds
   useEffect(() => {
-    if (movies.length === 0) return
+    if (movies.length <= 1) return
     const timer = setInterval(() => {
-      handleNext()
-    }, 5000)
+      setDirection(1)
+      setCurrentIndex((prev) => (prev + 1) % movies.length)
+    }, 6000)
     return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, movies.length])
+  }, [movies.length])
+
+  useEffect(() => {
+    if (movies.length <= 1) return
+    const next = movies[(currentIndex + 1) % movies.length]
+    if (!next?.backdrop_path) return
+    const img = new Image()
+    img.src = backdropUrl(next.backdrop_path)
+  }, [currentIndex, movies])
+
+  if (!currentMovie) return null
 
   const handleNext = () => {
     setDirection(1)
@@ -77,14 +73,6 @@ export default function HeroSection() {
     }),
   }
 
-  if (loading || !currentMovie) {
-    return (
-      <div className="relative h-screen min-h-[700px] max-h-[900px] w-full flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-
   return (
     <div className="relative h-[70vh] sm:h-[80vh] md:h-[85vh] min-h-[500px] max-h-[800px] w-full flex items-center overflow-hidden">
       {/* Animated Background Images */}
@@ -105,7 +93,7 @@ export default function HeroSection() {
           <div
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{
-              backgroundImage: `url("https://image.tmdb.org/t/p/original${currentMovie.backdrop_path}")`,
+              backgroundImage: `url("${backdropUrl(currentMovie.backdrop_path)}")`,
               backgroundSize: 'cover',
               backgroundPosition: 'center center',
             }}
@@ -165,14 +153,14 @@ export default function HeroSection() {
               className="inline-block py-1 px-2 md:px-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-2 md:mb-4"
             >
               <span className="text-primary font-medium tracking-widest text-xs md:text-sm uppercase">
-                Exclusive Premiere
+                {currentMovie.media_type === 'tv' ? 'Series Premiere' : 'Exclusive Premiere'}
               </span>
             </motion.div>
 
             {/* Movie Title - Shows original Hindi title */}
             <h1 className="font-display text-3xl sm:text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-2 md:mb-3 relative z-20 leading-tight">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-yellow-200 to-primary animate-shimmer bg-[size:200%_auto]">
-                {currentMovie.original_title}
+                {currentMovie.original_title || currentMovie.title}
               </span>
             </h1>
 
@@ -182,7 +170,7 @@ export default function HeroSection() {
 
             {/* CTA Buttons */}
             <div className="flex gap-2 md:gap-3 flex-wrap">
-              <Link href={`/movie/${currentMovie.id}`}>
+              <Link href={currentMovie.media_type === 'tv' ? `/tv/${currentMovie.id}` : `/movie/${currentMovie.id}`}>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
