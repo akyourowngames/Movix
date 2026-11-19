@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
+import { recordPlayback } from '@/lib/profileActions'
 
 interface StreamServer {
   name: string
@@ -91,6 +92,16 @@ export default function VideoPlayer({
   useEffect(() => {
     setIsLocalhost(window.location.hostname.includes('localhost'))
   }, [])
+
+  useEffect(() => {
+    recordPlayback({
+      id: Number(tmdbId),
+      type,
+      season: type === 'tv' ? season : null,
+      episode: type === 'tv' ? episode : null,
+      title: title ?? null,
+    })
+  }, [tmdbId, type, season, episode, title])
 
   const isAvailable = (server: StreamServer) =>
     !server.requiresImdb || Boolean(imdbId)

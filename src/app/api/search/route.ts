@@ -11,6 +11,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
+  // Bound user-controlled upstream queries to reduce abuse and provider cost.
+  if (query.length > 100) {
+    return NextResponse.json({ results: [], error: 'query_too_long' }, {
+      status: 400,
+      headers: { 'Cache-Control': 'no-store' },
+    })
+  }
+
   const [movieData, tvData] = await Promise.all([
     type === 'tv' ? null : searchMovies(query),
     type === 'movie' ? null : searchWebSeries(query),

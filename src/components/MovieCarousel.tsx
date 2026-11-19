@@ -34,12 +34,15 @@ export default function MovieCarousel({ title, hindiTitle, subtitle, movies, typ
             <div className="container mx-auto px-6 max-w-7xl mb-6 flex justify-between items-end">
                 <div className="flex-1 min-w-0">
                     <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 mb-2 truncate">
-                        {hindiTitle || title}
-                    </h2>
-                    <p className="text-white/50 text-xs md:text-sm tracking-widest uppercase">
                         {title}
-                        {subtitle ? <span className="text-white/30"> · {subtitle}</span> : null}
-                    </p>
+                    </h2>
+                    {(hindiTitle || subtitle) && (
+                        <p className="text-white/50 text-xs md:text-sm tracking-widest uppercase">
+                            {hindiTitle}
+                            {hindiTitle && subtitle ? <span className="text-white/30"> · </span> : null}
+                            {subtitle}
+                        </p>
+                    )}
                 </div>
 
                 <div className="hidden md:flex gap-2 flex-shrink-0 ml-4">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { trackView } from '@/hooks/useLocalProfile'
+import { recordView } from '@/lib/profileActions'
 
 interface TrackViewProps {
   id: number
@@ -16,7 +16,7 @@ export default function TrackView({ id, type, title, poster, genres, language }:
   const genreKey = genres.join(',')
 
   useEffect(() => {
-    trackView({ id, type, title, poster, genres, language })
+    recordView({ id, type, title, poster, genres, language })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, type, title, poster, genreKey, language])
 

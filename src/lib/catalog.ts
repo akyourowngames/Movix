@@ -21,6 +21,13 @@ export const getImageUrl = (
   return `${IMG_BASE}/${size}${path}`
 }
 
+export const tmdbPosterPath = (poster: string | null | undefined) => {
+  if (!poster) return null
+  if (poster.startsWith('/')) return poster
+  const match = poster.match(/image\.tmdb\.org\/t\/p\/[^/]+(\/.+)$/)
+  return match ? match[1] : null
+}
+
 interface TMDBResultLike {
   id: number
   title?: string

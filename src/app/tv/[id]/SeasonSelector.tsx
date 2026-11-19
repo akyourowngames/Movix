@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronDown, Play } from 'lucide-react'
 import VideoPlayer from '@/components/VideoPlayer'
+import { useAuth } from '@/components/AuthProvider'
+import { fetchPlayback } from '@/lib/cloud'
 
 interface Season {
   id: number
@@ -44,8 +46,161 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
   const [selectedEpisode, setSelectedEpisode] = useState(1)
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [loading, setLoading] = useState(true)
+  const [episodeError, setEpisodeError] = useState(false)
+  const [episodeRetryKey, setEpisodeRetryKey] = useState(0)
   const [showSeasonDropdown, setShowSeasonDropdown] = useState(false)
+  const [activeSeason, setActiveSeason] = useState(validSeasons[0]?.season_number || 1)
   const [showEpisodeList, setShowEpisodeList] = useState(false)
+  const [resumeReady, setResumeReady] = useState(false)
+  const resumeBySeason = useRef(new Map<number, number>())
+  const resumeResolved = useRef(false)
+  const seasonPickerRef = useRef<HTMLDivElement>(null)
+  const seasonTriggerRef = useRef<HTMLButtonElement>(null)
+  const seasonOptionRefs = useRef(new Map<number, HTMLButtonElement>())
+  const typeaheadRef = useRef({ query: '', timer: null as ReturnType<typeof setTimeout> | null })
+  const prefersReducedMotion = useReducedMotion()
+  const { user, loading: authLoading } = useAuth()
+
+  const selectedSeasonIndex = Math.max(
+    0,
+    validSeasons.findIndex((season) => season.season_number === selectedSeason)
+  )
+
+  const closeSeasonDropdown = (restoreFocus = false) => {
+    setShowSeasonDropdown(false)
+    if (restoreFocus) seasonTriggerRef.current?.focus()
+  }
+
+  const openSeasonDropdown = () => {
+    if (validSeasons.length === 0) return
+    setActiveSeason(validSeasons[selectedSeasonIndex]?.season_number ?? validSeasons[0].season_number)
+    setShowSeasonDropdown(true)
+  }
+
+  const selectSeason = (seasonNumber: number) => {
+    setSelectedSeason(seasonNumber)
+    closeSeasonDropdown(true)
+  }
+
+  useLayoutEffect(() => {
+    if (!showSeasonDropdown) return
+
+    seasonOptionRefs.current.get(activeSeason)?.focus()
+    seasonOptionRefs.current.get(activeSeason)?.scrollIntoView({ block: 'nearest' })
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!seasonPickerRef.current?.contains(event.target as Node)) {
+        closeSeasonDropdown()
+      }
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [showSeasonDropdown, activeSeason])
+
+  useEffect(() => () => {
+    if (typeaheadRef.current.timer) clearTimeout(typeaheadRef.current.timer)
+  }, [])
+
+  const handleSeasonListKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (validSeasons.length === 0) return
+    const activeIndex = Math.max(
+      0,
+      validSeasons.findIndex((season) => season.season_number === activeSeason)
+    )
+    let nextIndex = activeIndex
+
+    if (event.key === 'ArrowDown') nextIndex = (activeIndex + 1) % validSeasons.length
+    else if (event.key === 'ArrowUp') nextIndex = (activeIndex - 1 + validSeasons.length) % validSeasons.length
+    else if (event.key === 'Home') nextIndex = 0
+    else if (event.key === 'End') nextIndex = validSeasons.length - 1
+    else if (event.key === 'Escape') {
+      event.preventDefault()
+      closeSeasonDropdown(true)
+      return
+    } else if (event.key === 'Tab') {
+      closeSeasonDropdown()
+      return
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      selectSeason(activeSeason)
+      return
+    } else if (event.key.length === 1 && event.key.trim().length > 0 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      typeaheadRef.current.query += event.key.toLocaleLowerCase()
+      if (typeaheadRef.current.timer) clearTimeout(typeaheadRef.current.timer)
+      typeaheadRef.current.timer = setTimeout(() => {
+        typeaheadRef.current.query = ''
+        typeaheadRef.current.timer = null
+      }, 500)
+
+      const query = typeaheadRef.current.query
+      const matchOffset = validSeasons.findIndex((season, index) =>
+        index > activeIndex && season.name.toLocaleLowerCase().startsWith(query)
+      )
+      const wrappedMatch = matchOffset >= 0 ? matchOffset : validSeasons.findIndex(
+        (season) => season.name.toLocaleLowerCase().startsWith(query)
+      )
+      if (wrappedMatch >= 0) nextIndex = wrappedMatch
+      else return
+    } else {
+      return
+    }
+
+    event.preventDefault()
+    const nextSeason = validSeasons[nextIndex]
+    if (!nextSeason) return
+    setActiveSeason(nextSeason.season_number)
+  }
+
+  // Resume last episode (URL params win, then cloud playback)
+  useEffect(() => {
+    if (resumeResolved.current) return
+
+    const params = new URLSearchParams(window.location.search)
+    const seasonParam = Number(params.get('s'))
+    const episodeParam = Number(params.get('e'))
+
+    if (Number.isFinite(seasonParam) && seasonParam > 0) {
+      resumeResolved.current = true
+      resumeBySeason.current.set(seasonParam, Number.isFinite(episodeParam) && episodeParam > 0 ? episodeParam : 1)
+      setSelectedSeason(seasonParam)
+      if (Number.isFinite(episodeParam) && episodeParam > 0) setSelectedEpisode(episodeParam)
+      setResumeReady(true)
+      return
+    }
+
+    if (authLoading) return
+
+    if (!user) {
+      resumeResolved.current = true
+      setResumeReady(true)
+      return
+    }
+
+    resumeResolved.current = true
+    let cancelled = false
+    fetchPlayback(Number(tmdbId), 'tv')
+      .then((playback) => {
+        if (cancelled) return
+        if (playback?.season) {
+          const episode = playback.episode ?? 1
+          resumeBySeason.current.set(playback.season, episode)
+          setSelectedSeason(playback.season)
+          setSelectedEpisode(episode)
+        }
+      })
+      .catch(() => {
+        // Resume is best-effort; start from the first episode on failure.
+      })
+      .finally(() => {
+        if (!cancelled) setResumeReady(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tmdbId, authLoading, user])
 
   // Fetch episodes when season changes
   useEffect(() => {
@@ -54,7 +209,13 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
 
     if (cached) {
       setEpisodes(cached)
-      setSelectedEpisode(1)
+      const resumeAt = resumeBySeason.current.get(selectedSeason)
+      if (resumeAt) {
+        resumeBySeason.current.delete(selectedSeason)
+        setSelectedEpisode(resumeAt)
+      } else {
+        setSelectedEpisode(1)
+      }
       setLoading(false)
       return
     }
@@ -73,17 +234,25 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
         const results: Episode[] = data.episodes || []
         episodeCache.set(key, results)
         setEpisodes(results)
-        setSelectedEpisode(1) // Reset to first episode
+        setEpisodeError(false)
+        const resumeAt = resumeBySeason.current.get(selectedSeason)
+        if (resumeAt) {
+          resumeBySeason.current.delete(selectedSeason)
+          setSelectedEpisode(resumeAt)
+        } else {
+          setSelectedEpisode(1) // Reset to first episode
+        }
         setLoading(false)
       })
       .catch((err) => {
         if ((err as Error).name === 'AbortError') return
         setEpisodes([])
+        setEpisodeError(true)
         setLoading(false)
       })
 
     return () => controller.abort()
-  }, [tmdbId, selectedSeason])
+  }, [tmdbId, selectedSeason, episodeRetryKey])
 
   const currentSeason = validSeasons.find(s => s.season_number === selectedSeason)
   const currentEpisode = episodes.find(e => e.episode_number === selectedEpisode)
@@ -93,38 +262,61 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
       {/* Season & Episode Selectors */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Season Dropdown */}
-        <div className="relative flex-1">
+        <div className="relative flex-1" ref={seasonPickerRef}>
           <button
-            onClick={() => setShowSeasonDropdown(!showSeasonDropdown)}
-            className="w-full flex items-center justify-between px-6 py-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-colors"
+            ref={seasonTriggerRef}
+            type="button"
+            onClick={() => showSeasonDropdown ? closeSeasonDropdown() : openSeasonDropdown()}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                if (!showSeasonDropdown) openSeasonDropdown()
+              }
+            }}
+            aria-haspopup="listbox"
+            aria-expanded={showSeasonDropdown}
+            aria-controls="season-options"
+            disabled={validSeasons.length === 0}
+            className="flex min-h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-6 py-4 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="font-medium">
               {currentSeason?.name || `Season ${selectedSeason}`}
             </span>
-            <ChevronDown className={`w-5 h-5 transition-transform ${showSeasonDropdown ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-5 w-5 transition-transform motion-reduce:transition-none ${showSeasonDropdown ? 'rotate-180' : ''}`} />
           </button>
 
           <AnimatePresence>
             {showSeasonDropdown && (
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
+                id="season-options"
+                role="listbox"
+                aria-label="Choose a season"
+                onKeyDown={handleSeasonListKeyDown}
+                initial={{ opacity: 0, y: prefersReducedMotion ? 0 : -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50"
+                exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -10 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
+                className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[min(60dvh,24rem)] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-zinc-900 shadow-2xl"
               >
                 {validSeasons.map((season) => (
                   <button
                     key={season.id}
-                    onClick={() => {
-                      setSelectedSeason(season.season_number)
-                      setShowSeasonDropdown(false)
+                    ref={(element) => {
+                      if (element) seasonOptionRefs.current.set(season.season_number, element)
+                      else seasonOptionRefs.current.delete(season.season_number)
                     }}
-                    className={`w-full px-6 py-3 text-left hover:bg-white/10 transition-colors ${
-                      selectedSeason === season.season_number ? 'bg-primary/20 text-primary' : ''
+                    type="button"
+                    role="option"
+                    aria-selected={selectedSeason === season.season_number}
+                    tabIndex={activeSeason === season.season_number ? 0 : -1}
+                    onMouseMove={() => setActiveSeason(season.season_number)}
+                    onClick={() => selectSeason(season.season_number)}
+                    className={`flex min-h-12 w-full flex-col justify-center px-6 py-3 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary motion-reduce:transition-none ${
+                      selectedSeason === season.season_number ? 'bg-primary/20 text-primary' : 'text-white'
                     }`}
                   >
                     <div className="font-medium">{season.name}</div>
-                    <div className="text-xs text-white/40">{season.episode_count} episodes</div>
+                    <div className="text-xs text-white/60">{season.episode_count} episodes</div>
                   </button>
                 ))}
               </motion.div>
@@ -134,12 +326,16 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
 
         {/* Episode Toggle */}
         <button
+          type="button"
+          id="episode-list-trigger"
           onClick={() => setShowEpisodeList(!showEpisodeList)}
-          className="flex items-center justify-center gap-2 px-6 py-4 bg-primary text-black font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+          aria-expanded={showEpisodeList}
+          aria-controls="episode-list"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 font-semibold text-black transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
         >
           <Play className="w-5 h-5" />
           Episode {selectedEpisode}
-          <ChevronDown className={`w-5 h-5 transition-transform ${showEpisodeList ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-5 w-5 transition-transform motion-reduce:transition-none ${showEpisodeList ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
@@ -147,17 +343,39 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
       <AnimatePresence>
         {showEpisodeList && (
           <motion.div
+            id="episode-list"
+            aria-labelledby="episode-list-trigger"
+            aria-busy={loading}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
             {loading ? (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center gap-3 py-12 text-sm text-white/60" role="status">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/10 border-t-primary" />
+                Loading episodes…
+              </div>
+            ) : episodeError ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-center" role="alert">
+                <p className="text-sm text-white/70">Episodes could not be loaded. Check your connection and try again.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    episodeCache.delete(`${tmdbId}:${selectedSeason}`)
+                    setEpisodeError(false)
+                    setLoading(true)
+                    setEpisodes([])
+                    setEpisodeRetryKey((key) => key + 1)
+                  }}
+                  className="min-h-11 rounded-lg border border-white/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Retry
+                </button>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              episodes.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {episodes.map((episode) => (
                   <motion.button
                     key={episode.id}
@@ -198,6 +416,9 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
                   </motion.button>
                 ))}
               </div>
+              ) : (
+                <p className="py-12 text-center text-sm text-white/60" role="status">No episodes are listed for this season.</p>
+              )
             )}
           </motion.div>
         )}
@@ -233,14 +454,18 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
       )}
 
       {/* Video Player */}
-      <VideoPlayer
-        tmdbId={tmdbId}
-        imdbId={imdbId}
-        type="tv"
-        season={selectedSeason}
-        episode={selectedEpisode}
-        title={`${showTitle} - S${selectedSeason}E${selectedEpisode}`}
-      />
+      {resumeReady ? (
+        <VideoPlayer
+          tmdbId={tmdbId}
+          imdbId={imdbId}
+          type="tv"
+          season={selectedSeason}
+          episode={selectedEpisode}
+          title={`${showTitle} - S${selectedSeason}E${selectedEpisode}`}
+        />
+      ) : (
+        <div className="aspect-video w-full animate-pulse rounded-2xl border border-white/10 bg-white/5" />
+      )}
     </div>
   )
 }

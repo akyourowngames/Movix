@@ -75,8 +75,9 @@ export const getNewReleases = async (page: number = 1) => {
 // Search movies
 export const searchMovies = async (query: string) => {
   try {
+    const params = new URLSearchParams({ api_key: KEY || '', query, language: 'hi-IN' })
     const res = await fetchTMDB(
-      `${BASE}/search/movie?api_key=${KEY}&query=${query}&language=hi-IN`
+      `${BASE}/search/movie?${params.toString()}`
     )
     if (!res?.ok) return { results: [] }
     return res.json()
@@ -148,8 +149,9 @@ export const getMoviesByGenre = async (genreId: string) => {
 // Search TV shows
 export const searchWebSeries = async (query: string) => {
   try {
+    const params = new URLSearchParams({ api_key: KEY || '', query, language: 'hi-IN' })
     const res = await fetchTMDB(
-      `${BASE}/search/tv?api_key=${KEY}&query=${query}&language=hi-IN`
+      `${BASE}/search/tv?${params.toString()}`
     )
     if (!res?.ok) return { results: [] }
     return res.json()
@@ -315,6 +317,7 @@ export const getTVRecommendations = async (tmdbId: string) => {
 // Only these parameters may reach /discover — callers never build the URL
 const DISCOVER_KEYS = [
   'with_original_language',
+  'with_origin_country',
   'with_genres',
   'primary_release_date.gte',
   'primary_release_date.lte',

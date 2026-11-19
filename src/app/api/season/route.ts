@@ -15,10 +15,19 @@ interface EpisodeLike {
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const tvId = params.get('tv')
-  const season = Number(params.get('season'))
+  const seasonParam = params.get('season')
+  const season = Number(seasonParam)
 
-  if (!tvId || !Number.isFinite(season)) {
-    return NextResponse.json({ episodes: [] }, { status: 400 })
+  // Validate path segments before using them in a provider URL.
+  if (
+    !tvId || !/^\d{1,9}$/.test(tvId) ||
+    !seasonParam || !/^\d{1,3}$/.test(seasonParam) ||
+    season < 0 || season > 500
+  ) {
+    return NextResponse.json(
+      { episodes: [], error: 'invalid_params' },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } }
+    )
   }
 
   const data = await getSeasonEpisodes(tvId, season)

@@ -165,7 +165,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
             </h1>
 
             <p className="text-xs sm:text-sm md:text-base lg:text-lg text-white/80 mb-4 md:mb-6 font-light italic line-clamp-2">
-              {currentMovie.overview || 'Duniya ki best Hindi films, ek jagah.'}
+              {currentMovie.overview || 'The best of cinema, all in one place.'}
             </p>
 
             {/* CTA Buttons */}
@@ -177,7 +177,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   className="flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 bg-primary text-background rounded-full font-bold text-xs md:text-base shadow-[0_0_30px_hsla(var(--primary)/0.5)] hover:shadow-[0_0_50px_hsla(var(--primary)/0.7)] transition-all"
                 >
                   <Play className="w-3 h-3 md:w-4 md:h-4" fill="currentColor" />
-                  अभी देखें
+                  Watch Now
                 </motion.button>
               </Link>
 

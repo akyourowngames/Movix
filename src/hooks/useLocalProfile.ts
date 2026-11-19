@@ -27,10 +27,16 @@ export interface ProfileRef {
   at: number
 }
 
+export interface LikeItem extends ProfileRef {
+  title?: string
+  poster?: string | null
+  genres?: number[]
+}
+
 export interface LocalProfile {
   v: 1
   history: HistoryItem[]
-  likes: ProfileRef[]
+  likes: LikeItem[]
   watchlist: HistoryItem[]
   updatedAt: number
 }
@@ -161,13 +167,17 @@ export const trackView = (item: Omit<HistoryItem, 'at'>) => {
   persist({ ...snapshot, history, updatedAt: now })
 }
 
-export const toggleLike = (id: number, type: MediaKind) => {
+export const toggleLike = (
+  id: number,
+  type: MediaKind,
+  meta?: Pick<LikeItem, 'title' | 'poster' | 'genres'>
+) => {
   ensureLoaded()
   const now = Date.now()
   const exists = snapshot.likes.some((entry) => entry.id === id && entry.type === type)
   const likes = exists
     ? snapshot.likes.filter((entry) => !(entry.id === id && entry.type === type))
-    : [{ id, type, at: now }, ...snapshot.likes].slice(0, MAX_LIKES)
+    : [{ id, type, at: now, ...meta }, ...snapshot.likes].slice(0, MAX_LIKES)
 
   persist({ ...snapshot, likes, updatedAt: now })
 }
@@ -183,6 +193,28 @@ export const addToWatchlist = (item: Omit<HistoryItem, 'at'>) => {
   ].slice(0, MAX_WATCHLIST)
 
   persist({ ...snapshot, watchlist, updatedAt: now })
+}
+
+export const removeFromWatchlist = (id: number, type: MediaKind) => {
+  ensureLoaded()
+  persist({
+    ...snapshot,
+    watchlist: snapshot.watchlist.filter(
+      (entry) => !(entry.id === id && entry.type === type)
+    ),
+    updatedAt: Date.now(),
+  })
+}
+
+export const getProfileSnapshot = () => {
+  ensureLoaded()
+  return snapshot
+}
+
+export const replaceProfile = (profile: LocalProfile) => {
+  loaded = true
+  const next = validProfile(profile) ? pruneProfile(profile) : EMPTY_PROFILE
+  persist({ ...next, updatedAt: Date.now() })
 }
 
 export const clearProfile = () => {

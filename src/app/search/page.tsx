@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { Search, Star, Filter, X, Film, Tv, RefreshCw } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { getImageUrl, type CatalogItem } from '@/lib/catalog'
 
@@ -42,11 +42,66 @@ function SearchPageContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const [showFilters, setShowFilters] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
   const [selectedGenres, setSelectedGenres] = useState<number[]>([])
   const [minRating, setMinRating] = useState(0)
   const [yearRange, setYearRange] = useState([1980, new Date().getFullYear()])
   const [contentType, setContentType] = useState<'movie' | 'tv' | 'both'>('both')
+  const filterTriggerRef = useRef<HTMLButtonElement>(null)
+  const filterDialogRef = useRef<HTMLElement>(null)
+  const restoreFilterFocus = useRef(false)
+  const prefersReducedMotion = useReducedMotion()
+  const activeFilterCount =
+    selectedGenres.length +
+    Number(minRating > 0) +
+    Number(yearRange[0] !== 1980 || yearRange[1] !== new Date().getFullYear())
+
+  useEffect(() => {
+    if (!showFilters) {
+      if (restoreFilterFocus.current) {
+        filterTriggerRef.current?.focus()
+        restoreFilterFocus.current = false
+      }
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    restoreFilterFocus.current = true
+    filterDialogRef.current
+      ?.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled])')
+      ?.focus()
+
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [showFilters])
+
+  const handleFilterDialogKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setShowFilters(false)
+      return
+    }
+
+    if (event.key !== 'Tab' || !filterDialogRef.current) return
+    const focusable = Array.from(
+      filterDialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((element) => element.offsetParent !== null)
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+
+    if (!first || !last) return
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   // Keep the input in sync when navigating here with ?q= from the navbar
   useEffect(() => {
@@ -130,146 +185,128 @@ function SearchPageContent() {
     )
   }
 
+  const filterControls = (
+    <>
+      <fieldset className="mb-7">
+        <legend className="mb-3 font-medium">Content type</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { value: 'both', label: 'Both' },
+            { value: 'movie', label: 'Movies' },
+            { value: 'tv', label: 'TV' },
+          ] as const).map((option) => (
+            <button key={option.value} type="button" aria-pressed={contentType === option.value}
+              onClick={() => setContentType(option.value)}
+              className={`min-h-11 rounded-lg border px-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${contentType === option.value ? 'border-primary bg-primary text-black' : 'border-white/10 bg-white/5 text-white hover:bg-white/10'}`}>
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="mb-7">
+        <legend className="mb-3 font-medium">Genres</legend>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          {GENRES.map((genre) => (
+            <label key={genre.id} className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm text-white/80">
+              <input type="checkbox" checked={selectedGenres.includes(genre.id)} onChange={() => toggleGenre(genre.id)}
+                className="h-5 w-5 shrink-0 accent-[hsl(var(--primary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+              <span>{genre.name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="mb-7">
+        <label htmlFor="min-rating" className="mb-3 flex items-center justify-between font-medium">
+          <span>Minimum rating</span><span className="text-primary tabular-nums">{minRating.toFixed(1)}</span>
+        </label>
+        <input id="min-rating" type="range" min="0" max="10" step="0.5" value={minRating}
+          onChange={(event) => setMinRating(Number(event.target.value))}
+          className="min-h-11 w-full accent-[hsl(var(--primary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+        <div className="flex justify-between text-xs text-white/50"><span>Any rating</span><span>10</span></div>
+      </div>
+
+      <fieldset>
+        <legend className="mb-3 font-medium">Release year</legend>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <label className="min-w-0">
+            <span className="mb-1 block text-xs text-white/50">From</span>
+            <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label="From year"
+              value={yearRange[0]} onChange={(event) => setYearRange([Number(event.target.value), yearRange[1]])}
+              className="h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40" />
+          </label>
+          <span className="mt-5 text-white/60">to</span>
+          <label className="min-w-0">
+            <span className="mb-1 block text-xs text-white/50">To</span>
+            <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label="To year"
+              value={yearRange[1]} onChange={(event) => setYearRange([yearRange[0], Number(event.target.value)])}
+              className="h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40" />
+          </label>
+        </div>
+      </fieldset>
+    </>
+  )
+
   return (
     <main className="min-h-screen bg-background pt-24 pb-32">
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto max-w-screen-2xl px-4 sm:px-6">
         {/* Search Bar */}
-        <div className="max-w-3xl mx-auto mb-12">
+        <div className="mx-auto mb-8 max-w-3xl sm:mb-12">
+          <h1 className="mb-5 text-center font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            Discover your next favourite
+          </h1>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
               type="text"
+              aria-label="Search movies and TV shows"
+              maxLength={100}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search movies... (खोजें फिल्में...)"
-              className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder:text-white/40 focus:outline-none focus:border-primary/50 backdrop-blur-xl"
+              placeholder="Search movies & shows..."
+              className="min-h-14 w-full rounded-2xl border border-white/10 bg-white/5 py-4 pl-12 pr-4 text-white placeholder:text-white/40 outline-none backdrop-blur-xl transition-colors focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40"
             />
           </div>
         </div>
 
-        <div className="flex gap-8">
-          {/* Filters Sidebar */}
-          <AnimatePresence>
-            {showFilters && (
-              <motion.aside
-                initial={{ x: -300, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -300, opacity: 0 }}
-                className="w-72 flex-shrink-0"
-              >
-                <div className="sticky top-24 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-display text-xl font-bold">Filters</h3>
-                    <button onClick={() => setShowFilters(false)}>
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
+        <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)] lg:gap-8">
+          {/* Desktop filter rail */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-24 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+              <h2 className="mb-6 font-display text-xl font-bold">Filters</h2>
+              {filterControls}
 
-                  {/* Content Type Filter */}
-                  <div className="mb-6">
-                    <h4 className="font-medium mb-3">Content Type</h4>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setContentType('both')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm transition-all ${
-                          contentType === 'both' ? 'bg-primary text-black' : 'bg-white/5 hover:bg-white/10'
-                        }`}
-                      >
-                        Both
-                      </button>
-                      <button
-                        onClick={() => setContentType('movie')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-all ${
-                          contentType === 'movie' ? 'bg-primary text-black' : 'bg-white/5 hover:bg-white/10'
-                        }`}
-                      >
-                        <Film className="w-4 h-4" />
-                        Movies
-                      </button>
-                      <button
-                        onClick={() => setContentType('tv')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-all ${
-                          contentType === 'tv' ? 'bg-primary text-black' : 'bg-white/5 hover:bg-white/10'
-                        }`}
-                      >
-                        <Tv className="w-4 h-4" />
-                        TV
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Genre Filter */}
-                  <div className="mb-6">
-                    <h4 className="font-medium mb-3">Genre / शैली</h4>
-                    <div className="space-y-2">
-                      {GENRES.map(genre => (
-                        <label key={genre.id} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedGenres.includes(genre.id)}
-                            onChange={() => toggleGenre(genre.id)}
-                            className="w-4 h-4 rounded border-white/20 bg-white/5 checked:bg-primary"
-                          />
-                          <span className="text-sm">{genre.name} / {genre.hindi}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Rating Filter */}
-                  <div className="mb-6">
-                    <h4 className="font-medium mb-3">Min Rating</h4>
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      step="0.5"
-                      value={minRating}
-                      onChange={(e) => setMinRating(Number(e.target.value))}
-                      className="w-full accent-primary"
-                    />
-                    <div className="flex justify-between text-sm text-white/60 mt-1">
-                      <span>0</span>
-                      <span className="text-primary font-bold">{minRating}</span>
-                      <span>10</span>
-                    </div>
-                  </div>
-
-                  {/* Year Range */}
-                  <div>
-                    <h4 className="font-medium mb-3">Year Range</h4>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        value={yearRange[0]}
-                        onChange={(e) => setYearRange([Number(e.target.value), yearRange[1]])}
-                        className="w-20 px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                      <span className="text-white/40">-</span>
-                      <input
-                        type="number"
-                        value={yearRange[1]}
-                        onChange={(e) => setYearRange([yearRange[0], Number(e.target.value)])}
-                        className="w-20 px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </motion.aside>
-            )}
-          </AnimatePresence>
+            </div>
+          </aside>
 
           {/* Results Grid */}
-          <div className="flex-1">
-            {!showFilters && (
+          <div className="min-w-0">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-white/55" role="status" aria-live="polite">
+                {loading ? 'Updating results…' : query.trim().length >= 2 ? `${results.length} results` : 'Search to discover something to watch'}
+              </p>
               <button
+                ref={filterTriggerRef}
+                type="button"
                 onClick={() => setShowFilters(true)}
-                className="mb-6 px-4 py-2 bg-white/10 rounded-lg flex items-center gap-2 hover:bg-white/20 transition-all"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 lg:hidden"
+                aria-haspopup="dialog"
+                aria-expanded={showFilters}
               >
-                <Filter className="w-4 h-4" />
-                Show Filters
+                <Filter className="h-4 w-4" />
+                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
               </button>
-            )}
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setSelectedGenres([]); setMinRating(0); setYearRange([1980, new Date().getFullYear()]) }}
+                  className="min-h-11 rounded-xl px-3 text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
 
             {error ? (
               <div className="flex flex-col items-center justify-center h-64 gap-4 text-white/60">
@@ -286,7 +323,7 @@ function SearchPageContent() {
               <SearchSkeleton />
             ) : results.length > 0 ? (
               <div
-                className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 transition-opacity duration-300 ${
+                className={`grid min-w-0 grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 xl:grid-cols-4 transition-opacity duration-300 motion-reduce:transition-none ${
                   loading ? 'opacity-50' : 'opacity-100'
                 }`}
               >
@@ -295,7 +332,7 @@ function SearchPageContent() {
                   const href = isTV ? `/tv/${item.id}` : `/movie/${item.id}`
 
                   return (
-                    <Link key={`${item.media_type}-${item.id}`} href={href} className="group cursor-pointer">
+                    <Link key={`${item.media_type}-${item.id}`} href={href} className="group min-w-0 cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                       <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -323,17 +360,68 @@ function SearchPageContent() {
                 })}
               </div>
             ) : query.trim().length >= 2 ? (
-              <div className="text-center py-20 text-white/60">
+              <div className="text-center py-20 text-white/60" role="status">
                 No movies found. Try different keywords or filters.
               </div>
             ) : (
-              <div className="text-center py-20 text-white/60">
+              <div className="text-center py-20 text-white/60" role="status">
                 Start typing to search movies...
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Mobile filters: modal bottom sheet with a scrollable body and sticky actions. */}
+      <AnimatePresence>
+        {showFilters && (
+          <>
+            <motion.button
+              type="button"
+              aria-label="Close filters"
+              onClick={() => setShowFilters(false)}
+              className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            />
+            <motion.section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-filter-title"
+              ref={filterDialogRef}
+              onKeyDown={handleFilterDialogKeyDown}
+              className="fixed inset-x-0 bottom-0 z-[61] flex max-h-[85dvh] flex-col rounded-t-3xl border border-white/10 bg-zinc-950 shadow-2xl [padding-bottom:env(safe-area-inset-bottom)] lg:hidden"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
+            >
+              <div className="flex justify-center pt-3" aria-hidden="true">
+                <span className="h-1 w-10 rounded-full bg-white/25" />
+              </div>
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <h2 id="mobile-filter-title" className="font-display text-xl font-bold">Filters</h2>
+                <button type="button" onClick={() => setShowFilters(false)} className="flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="Close filters">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
+                {filterControls}
+              </div>
+              <div className="flex gap-3 border-t border-white/10 bg-zinc-950 px-5 py-4">
+                <button type="button" onClick={() => { setSelectedGenres([]); setMinRating(0); setYearRange([1980, new Date().getFullYear()]) }} className="min-h-12 flex-1 rounded-xl border border-white/15 px-4 text-sm font-medium text-white hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  Reset
+                </button>
+                <button type="button" onClick={() => setShowFilters(false)} className="min-h-12 flex-[2] rounded-xl bg-primary px-4 text-sm font-semibold text-black transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950">
+                  Show {results.length} results
+                </button>
+              </div>
+            </motion.section>
+          </>
+        )}
+      </AnimatePresence>
     </main>
   )
 }

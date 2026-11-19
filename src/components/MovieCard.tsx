@@ -1,9 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Plus, Play, Star } from 'lucide-react'
+import { Check, Heart, Plus, Play, Star } from 'lucide-react'
 import type { Movie } from '@/lib/data'
 import Link from 'next/link'
+import { tmdbPosterPath } from '@/lib/catalog'
+import { useLocalProfile } from '@/hooks/useLocalProfile'
+import { toggleMediaLike, toggleMediaWatchlist } from '@/lib/profileActions'
 
 interface MovieCardProps {
     movie: Movie;
@@ -16,6 +19,41 @@ export default function MovieCard({ movie, index, type = 'movie', variant = 'def
     const resolvedType = movie.mediaType ?? type
     const href = resolvedType === 'tv' ? `/tv/${movie.id}` : `/movie/${movie.id}`
     const showRank = variant === 'ranked' && typeof movie.rank === 'number' && movie.rank <= 99
+    const { profile } = useLocalProfile()
+
+    const numericId = Number(movie.id)
+    const inWatchlist = profile.watchlist.some(
+        (entry) => entry.id === numericId && entry.type === resolvedType
+    )
+    const liked = profile.likes.some(
+        (entry) => entry.id === numericId && entry.type === resolvedType
+    )
+
+    const watchlistItem = {
+        id: numericId,
+        type: resolvedType,
+        title: movie.title,
+        poster: tmdbPosterPath(movie.poster),
+        genres: [],
+    }
+
+    const handleWatchlist = (event: React.MouseEvent) => {
+        event.preventDefault()
+        event.stopPropagation()
+        toggleMediaWatchlist(watchlistItem)
+    }
+
+    const handleLike = (event: React.MouseEvent) => {
+        event.preventDefault()
+        event.stopPropagation()
+        toggleMediaLike({
+            id: numericId,
+            type: resolvedType,
+            title: movie.title,
+            poster: watchlistItem.poster,
+            genres: [],
+        })
+    }
 
     return (
         <Link href={href} prefetch={false}>
@@ -98,8 +136,27 @@ export default function MovieCard({ movie, index, type = 'movie', variant = 'def
                     <button className="flex-1 bg-primary text-primary-foreground rounded-full py-2 flex justify-center items-center hover:bg-gold-400 transition-colors">
                         <Play fill="currentColor" className="w-4 h-4" />
                     </button>
-                    <button className="w-10 h-10 rounded-full border border-white/30 flex justify-center items-center hover:bg-white/10 hover:border-white transition-colors">
-                        <Plus className="w-4 h-4" />
+                    <button
+                        onClick={handleWatchlist}
+                        aria-label={inWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
+                        className={`w-10 h-10 rounded-full border flex justify-center items-center transition-colors ${
+                            inWatchlist
+                                ? 'border-primary bg-primary/20 text-primary'
+                                : 'border-white/30 hover:bg-white/10 hover:border-white'
+                        }`}
+                    >
+                        {inWatchlist ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    </button>
+                    <button
+                        onClick={handleLike}
+                        aria-label={liked ? 'Remove from favorites' : 'Add to favorites'}
+                        className={`w-10 h-10 rounded-full border flex justify-center items-center transition-colors ${
+                            liked
+                                ? 'border-primary bg-primary/20 text-primary'
+                                : 'border-white/30 hover:bg-white/10 hover:border-white'
+                        }`}
+                    >
+                        <Heart className="w-4 h-4" fill={liked ? 'currentColor' : 'none'} />
                     </button>
                 </div>
             </motion.div>

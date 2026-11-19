@@ -103,6 +103,14 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
       topTvRes,
       gemMovieRes,
       gemTvRes,
+      bollyRes,
+      indianTvRes,
+      southRes,
+      hollyRes,
+      kdramaRes,
+      animeRes,
+      actionRes,
+      comedyRes,
     ] = await Promise.all([
       getTrendingMoviesDay(),
       getTrendingTVDay(),
@@ -140,6 +148,66 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
         sort_by: 'vote_average.desc',
         page: 1,
       }),
+      getDiscoverMovies({
+        with_original_language: 'hi',
+        with_origin_country: 'IN',
+        'primary_release_date.lte': today,
+        'vote_count.gte': 20,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
+      getDiscoverTV({
+        with_origin_country: 'IN',
+        'first_air_date.lte': today,
+        'vote_count.gte': 5,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
+      getDiscoverMovies({
+        with_original_language: 'ta|te|ml|kn',
+        with_origin_country: 'IN',
+        'primary_release_date.lte': today,
+        'vote_count.gte': 20,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
+      getDiscoverMovies({
+        with_original_language: 'en',
+        'primary_release_date.lte': today,
+        'vote_count.gte': 150,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
+      getDiscoverTV({
+        with_original_language: 'ko',
+        with_origin_country: 'KR',
+        'first_air_date.lte': today,
+        'vote_count.gte': 10,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
+      getDiscoverTV({
+        with_genres: 16,
+        with_original_language: 'ja',
+        'first_air_date.lte': today,
+        'vote_count.gte': 20,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
+      getDiscoverMovies({
+        with_genres: 28,
+        'primary_release_date.lte': today,
+        'vote_count.gte': 120,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
+      getDiscoverMovies({
+        with_genres: 35,
+        'primary_release_date.lte': today,
+        'vote_count.gte': 150,
+        sort_by: 'popularity.desc',
+        page: 1,
+      }),
     ])
 
     let movieTrend = toResults(movieTrendRes)
@@ -165,6 +233,14 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
     const topTvItems = toResults(topTvRes).map((raw) => normalizeTMDBItem(raw, 'tv'))
     const gemMovieItems = toResults(gemMovieRes).map((raw) => normalizeTMDBItem(raw, 'movie'))
     const gemTvItems = toResults(gemTvRes).map((raw) => normalizeTMDBItem(raw, 'tv'))
+    const bollyItems = toResults(bollyRes).map((raw) => normalizeTMDBItem(raw, 'movie'))
+    const indianTvItems = toResults(indianTvRes).map((raw) => normalizeTMDBItem(raw, 'tv'))
+    const southItems = toResults(southRes).map((raw) => normalizeTMDBItem(raw, 'movie'))
+    const hollyItems = toResults(hollyRes).map((raw) => normalizeTMDBItem(raw, 'movie'))
+    const kdramaItems = toResults(kdramaRes).map((raw) => normalizeTMDBItem(raw, 'tv'))
+    const animeItems = toResults(animeRes).map((raw) => normalizeTMDBItem(raw, 'tv'))
+    const actionItems = toResults(actionRes).map((raw) => normalizeTMDBItem(raw, 'movie'))
+    const comedyItems = toResults(comedyRes).map((raw) => normalizeTMDBItem(raw, 'movie'))
 
     const all = dedupe([
       ...movieTrendItems,
@@ -321,6 +397,64 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
     ).slice(0, 18)
     gemItems.forEach((item) => claimed.add(keyOf(item)))
 
+    // 7) Curated industry & genre rows
+    const makeCategoryRow = (
+      key: string,
+      title: string,
+      hindiTitle: string,
+      subtitle: string,
+      items: ScorableItem[]
+    ): HomeRow => {
+      const picked = preferUnclaimed(
+        diversifyByGenre(
+          withScores(
+            items.filter((item) => isAcceptable(item, nowMs)),
+            nowMs,
+            (s) => 0.55 * s.pop + 0.3 * s.quality + 0.15 * s.fresh
+          ).sort(byScore)
+        )
+      ).slice(0, 20)
+
+      picked.forEach((item) => claimed.add(keyOf(item)))
+
+      return { key, title, hindiTitle, subtitle, movies: toMovies(picked, nowMs) }
+    }
+
+    const industryRows = [
+      makeCategoryRow(
+        'bollywood',
+        'Bollywood Blockbusters',
+        'बॉलीवुड',
+        'Hindi cinema, handpicked',
+        bollyItems
+      ),
+      makeCategoryRow(
+        'indian-series',
+        'Indian Web Series',
+        'भारतीय वेब सीरीज़',
+        'Hindi & regional series',
+        indianTvItems
+      ),
+      makeCategoryRow(
+        'south-indian',
+        'South Indian Hits',
+        'साउथ सिनेमा',
+        'Tamil · Telugu · Malayalam · Kannada',
+        southItems
+      ),
+      makeCategoryRow(
+        'hollywood',
+        'Hollywood Blockbusters',
+        'हॉलीवुड',
+        'English-language favourites',
+        hollyItems
+      ),
+      makeCategoryRow('kdrama', 'K-Dramas', 'के-ड्रामा', 'Korean series to binge', kdramaItems),
+      makeCategoryRow('anime', 'Anime Spotlight', 'एनीमे', 'Japanese animation', animeItems),
+      makeCategoryRow('action', 'Action Fix', 'एक्शन', 'High-octane picks', actionItems),
+      makeCategoryRow('comedy', 'Comedy Nights', 'कॉमेडी', 'Laugh out loud', comedyItems),
+    ].filter((row) => row.movies.length >= 8)
+
     const rows: HomeRow[] = [
       {
         key: 'top10',
@@ -351,6 +485,7 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
         hindiTitle: 'बेस्ट वेब सीरीज़',
         movies: toMovies(bestTvItems, nowMs),
       },
+      ...industryRows,
       {
         key: 'top-rated',
         title: 'Top Rated Movies',

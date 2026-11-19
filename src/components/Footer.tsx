@@ -10,7 +10,8 @@ export default function Footer() {
           <div>
             <Link href="/" className="flex items-center gap-2 mb-4">
               <Film className="w-8 h-8 text-primary" />
-              <span className="font-display text-2xl font-bold">सिनेमाघर</span>
+              <span className="font-display text-2xl font-bold">CineHindi</span>
+              <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">सिनेमाघर</span>
             </Link>
             <p className="text-white/60 text-sm">
               Your ultimate destination for Hindi cinema streaming.
@@ -32,10 +33,13 @@ export default function Footer() {
           <div>
             <h4 className="font-bold mb-4">Categories</h4>
             <ul className="space-y-2 text-sm">
-              <li><span className="text-white/60">Action / एक्शन</span></li>
-              <li><span className="text-white/60">Drama / ड्रामा</span></li>
-              <li><span className="text-white/60">Comedy / कॉमेडी</span></li>
-              <li><span className="text-white/60">Romance / रोमांस</span></li>
+              <li><Link href="/browse?category=bollywood" className="text-white/60 hover:text-primary transition-colors">Bollywood / बॉलीवुड</Link></li>
+              <li><Link href="/browse?category=indian-series" className="text-white/60 hover:text-primary transition-colors">Indian Series / वेब सीरीज़</Link></li>
+              <li><Link href="/browse?category=hollywood" className="text-white/60 hover:text-primary transition-colors">Hollywood / हॉलीवुड</Link></li>
+              <li><Link href="/browse?category=kdrama" className="text-white/60 hover:text-primary transition-colors">K-Dramas / के-ड्रामा</Link></li>
+              <li><Link href="/browse?category=anime" className="text-white/60 hover:text-primary transition-colors">Anime / एनीमे</Link></li>
+              <li><Link href="/browse?category=action" className="text-white/60 hover:text-primary transition-colors">Action / एक्शन</Link></li>
+              <li><Link href="/browse?category=comedy" className="text-white/60 hover:text-primary transition-colors">Comedy / कॉमेडी</Link></li>
             </ul>
           </div>
 
