@@ -1,27 +1,27 @@
 export default function DetailSkeleton() {
   return (
-    <main className="min-h-screen bg-background pt-20 pb-32">
-      <div className="container mx-auto px-4 md:px-6 pt-32 md:pt-40">
-        <div className="grid md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-6 md:gap-8 mb-12 animate-pulse">
-          <div className="w-48 sm:w-56 md:w-full aspect-[2/3] rounded-xl bg-white/5 mx-auto md:mx-0" />
+    <main className="min-h-screen bg-background pb-24 pt-24 sm:pt-28" role="status" aria-label="Loading title details" aria-busy="true">
+      <div className="page-shell pt-12 md:pt-16">
+        <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)] lg:grid-cols-[280px_minmax(0,1fr)] md:gap-10 mb-12">
+          <div className="skeleton-surface mx-auto aspect-[2/3] w-48 rounded-lg sm:w-56 md:mx-0 md:w-full" />
           <div className="space-y-4">
-            <div className="h-10 bg-white/5 rounded w-2/3" />
-            <div className="h-4 bg-white/5 rounded w-1/2" />
+            <div className="skeleton-surface h-12 w-4/5 rounded" />
+            <div className="skeleton-surface h-4 w-1/2 rounded" />
             <div className="flex gap-2">
-              <div className="h-7 w-20 bg-white/5 rounded-full" />
-              <div className="h-7 w-24 bg-white/5 rounded-full" />
+              <div className="skeleton-surface h-7 w-20 rounded" />
+              <div className="skeleton-surface h-7 w-24 rounded" />
             </div>
-            <div className="h-4 bg-white/5 rounded w-full" />
-            <div className="h-4 bg-white/5 rounded w-5/6" />
-            <div className="h-4 bg-white/5 rounded w-3/4" />
+            <div className="skeleton-surface h-4 w-full rounded" />
+            <div className="skeleton-surface h-4 w-5/6 rounded" />
+            <div className="skeleton-surface h-4 w-3/4 rounded" />
           </div>
         </div>
         <div className="flex gap-2 mb-4">
-          <div className="h-9 w-24 bg-white/5 rounded-lg animate-pulse" />
-          <div className="h-9 w-24 bg-white/5 rounded-lg animate-pulse" />
-          <div className="h-9 w-24 bg-white/5 rounded-lg animate-pulse" />
+          <div className="skeleton-surface h-9 w-24 rounded" />
+          <div className="skeleton-surface h-9 w-24 rounded" />
+          <div className="skeleton-surface h-9 w-24 rounded" />
         </div>
-        <div className="aspect-video w-full bg-white/5 rounded-2xl animate-pulse" />
+        <div className="skeleton-surface aspect-video w-full rounded-lg" />
       </div>
     </main>
   )

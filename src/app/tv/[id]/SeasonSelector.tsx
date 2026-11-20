@@ -90,7 +90,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
 
     const onPointerDown = (event: PointerEvent) => {
       if (!seasonPickerRef.current?.contains(event.target as Node)) {
-        closeSeasonDropdown()
+        closeSeasonDropdown(true)
       }
     }
 
@@ -119,7 +119,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
       closeSeasonDropdown(true)
       return
     } else if (event.key === 'Tab') {
-      closeSeasonDropdown()
+      closeSeasonDropdown(true)
       return
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -287,7 +287,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
 
           <AnimatePresence>
             {showSeasonDropdown && (
-              <motion.div
+            <motion.div
                 id="season-options"
                 role="listbox"
                 aria-label="Choose a season"
@@ -316,7 +316,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
                     }`}
                   >
                     <div className="font-medium">{season.name}</div>
-                    <div className="text-xs text-white/60">{season.episode_count} episodes</div>
+                    <div className="text-xs text-muted-foreground">{season.episode_count} episodes</div>
                   </button>
                 ))}
               </motion.div>
@@ -344,6 +344,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
         {showEpisodeList && (
           <motion.div
             id="episode-list"
+            role="region"
             aria-labelledby="episode-list-trigger"
             aria-busy={loading}
             initial={{ opacity: 0, height: 0 }}
@@ -379,13 +380,15 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
                 {episodes.map((episode) => (
                   <motion.button
                     key={episode.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    aria-pressed={selectedEpisode === episode.episode_number}
+                    whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                    whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                     onClick={() => {
                       setSelectedEpisode(episode.episode_number)
                       setShowEpisodeList(false)
                     }}
-                    className={`group relative overflow-hidden rounded-xl border transition-all ${
+                    className={`group relative min-h-11 overflow-hidden rounded-xl border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none ${
                       selectedEpisode === episode.episode_number
                         ? 'border-primary bg-primary/10'
                         : 'border-white/10 bg-white/5 hover:bg-white/10'
@@ -400,24 +403,24 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white/20">
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                           <Play className="w-12 h-12" />
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                       <div className="absolute bottom-2 left-2 right-2">
-                        <div className="text-xs text-white/60 mb-1">Episode {episode.episode_number}</div>
+                        <div className="mb-1 text-xs text-white">Episode {episode.episode_number}</div>
                         <div className="font-medium text-sm line-clamp-1">{episode.name}</div>
                       </div>
                     </div>
                     <div className="p-3">
-                      <p className="text-xs text-white/50 line-clamp-2">{episode.overview || 'No description available'}</p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{episode.overview || 'No description available'}</p>
                     </div>
                   </motion.button>
                 ))}
               </div>
               ) : (
-                <p className="py-12 text-center text-sm text-white/60" role="status">No episodes are listed for this season.</p>
+                <p className="py-12 text-center text-sm text-muted-foreground" role="status">No episodes are listed for this season.</p>
               )
             )}
           </motion.div>
@@ -437,17 +440,17 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-white/20">
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                   <Play className="w-8 h-8" />
                 </div>
               )}
             </div>
             <div className="flex-1">
-              <div className="text-xs text-white/40 mb-1">
+              <div className="mb-1 text-xs text-muted-foreground">
                 S{selectedSeason} E{selectedEpisode}
               </div>
-              <h4 className="font-semibold mb-2">{currentEpisode.name}</h4>
-              <p className="text-sm text-white/60 line-clamp-2">{currentEpisode.overview}</p>
+              <h3 className="mb-2 font-semibold">{currentEpisode.name}</h3>
+              <p className="line-clamp-2 text-sm text-muted-foreground">{currentEpisode.overview}</p>
             </div>
           </div>
         </div>

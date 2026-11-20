@@ -1,67 +1,68 @@
 import Link from 'next/link'
-import { Film, Github, Twitter, Instagram } from 'lucide-react'
+import { Film, Github } from 'lucide-react'
 
 export default function Footer() {
   return (
-    <footer className="bg-black/50 border-t border-white/10 mt-32">
-      <div className="container mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+    <footer className="mt-20 border-t border-white/10 bg-[#08090c]">
+      <div className="page-shell py-12 md:py-14">
+        <div className="mb-10 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1.2fr_.6fr] lg:gap-12">
           {/* Brand */}
           <div>
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <Film className="w-8 h-8 text-primary" />
-              <span className="font-display text-2xl font-bold">CineHindi</span>
-              <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">सिनेमाघर</span>
+            <h2 className="sr-only">CineHindi footer</h2>
+            <Link href="/" className="mb-4 flex items-center gap-2.5">
+              <Film className="h-7 w-7 text-primary" />
+              <span className="font-display text-2xl font-bold tracking-tight">CineHindi</span>
+              <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">सिनेमाघर</span>
             </Link>
-            <p className="text-white/60 text-sm">
+            <p className="max-w-xs text-sm leading-6 text-muted-foreground">
               Your ultimate destination for Hindi cinema streaming.
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-bold mb-4">Quick Links</h4>
+            <h2 className="mb-4 text-sm font-semibold text-white">Quick Links</h2>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/" className="text-white/60 hover:text-primary transition-colors">Home</Link></li>
-              <li><Link href="/browse" className="text-white/60 hover:text-primary transition-colors">Browse Movies</Link></li>
-              <li><Link href="/search" className="text-white/60 hover:text-primary transition-colors">Search</Link></li>
-              <li><Link href="/profile" className="text-white/60 hover:text-primary transition-colors">My Profile</Link></li>
+              <li><Link href="/" className="text-muted-foreground hover:text-primary transition-colors">Home</Link></li>
+              <li><Link href="/browse" className="text-muted-foreground hover:text-primary transition-colors">Browse Movies</Link></li>
+              <li><Link href="/search" className="text-muted-foreground hover:text-primary transition-colors">Search</Link></li>
+              <li><Link href="/profile" className="text-muted-foreground hover:text-primary transition-colors">My Profile</Link></li>
             </ul>
           </div>
 
           {/* Categories */}
           <div>
-            <h4 className="font-bold mb-4">Categories</h4>
+            <h2 className="mb-4 text-sm font-semibold text-white">Categories</h2>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/browse?category=bollywood" className="text-white/60 hover:text-primary transition-colors">Bollywood / बॉलीवुड</Link></li>
-              <li><Link href="/browse?category=indian-series" className="text-white/60 hover:text-primary transition-colors">Indian Series / वेब सीरीज़</Link></li>
-              <li><Link href="/browse?category=hollywood" className="text-white/60 hover:text-primary transition-colors">Hollywood / हॉलीवुड</Link></li>
-              <li><Link href="/browse?category=kdrama" className="text-white/60 hover:text-primary transition-colors">K-Dramas / के-ड्रामा</Link></li>
-              <li><Link href="/browse?category=anime" className="text-white/60 hover:text-primary transition-colors">Anime / एनीमे</Link></li>
-              <li><Link href="/browse?category=action" className="text-white/60 hover:text-primary transition-colors">Action / एक्शन</Link></li>
-              <li><Link href="/browse?category=comedy" className="text-white/60 hover:text-primary transition-colors">Comedy / कॉमेडी</Link></li>
+              <li><Link href="/browse?category=bollywood" className="text-muted-foreground hover:text-primary transition-colors">Bollywood / बॉलीवुड</Link></li>
+              <li><Link href="/browse?category=indian-series" className="text-muted-foreground hover:text-primary transition-colors">Indian Series / वेब सीरीज़</Link></li>
+              <li><Link href="/browse?category=hollywood" className="text-muted-foreground hover:text-primary transition-colors">Hollywood / हॉलीवुड</Link></li>
+              <li><Link href="/browse?category=kdrama" className="text-muted-foreground hover:text-primary transition-colors">K-Dramas / के-ड्रामा</Link></li>
+              <li><Link href="/browse?category=anime" className="text-muted-foreground hover:text-primary transition-colors">Anime / एनीमे</Link></li>
+              <li><Link href="/browse?category=action" className="text-muted-foreground hover:text-primary transition-colors">Action / एक्शन</Link></li>
+              <li><Link href="/browse?category=comedy" className="text-muted-foreground hover:text-primary transition-colors">Comedy / कॉमेडी</Link></li>
             </ul>
           </div>
 
           {/* Social */}
           <div>
-            <h4 className="font-bold mb-4">Connect</h4>
+            <h2 className="mb-4 text-sm font-semibold text-white">Connect</h2>
             <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 transition-colors">
-                <Instagram className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 transition-colors">
-                <Github className="w-5 h-5" />
+              <a
+                href="https://github.com/akyourowngames/Movix"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="CineHindi source code on GitHub (opens in a new tab)"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/5 transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Github className="h-5 w-5" aria-hidden="true" />
               </a>
             </div>
           </div>
         </div>
 
         {/* Bottom */}
-        <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white/40">
+        <div className="flex flex-col items-start justify-between gap-3 border-t border-white/10 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
           <p>© 2024 CineHindi. All rights reserved.</p>
           <p>Powered by TMDB API</p>
         </div>

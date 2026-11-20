@@ -10,10 +10,10 @@ export default async function Home() {
   const feed = await getHomeFeed()
 
   return (
-    <main className="min-h-screen bg-background pb-32">
+    <main className="min-h-screen bg-background pb-20">
       <HeroSection movies={feed.hero} />
 
-      <div className="relative z-30 -mt-32 pt-16">
+      <div className="relative z-30 -mt-8 pt-2 md:-mt-12">
         {feed.rows.map((row, index) => (
           <Fragment key={row.key}>
             <MovieCarousel

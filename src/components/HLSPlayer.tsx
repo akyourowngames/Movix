@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   Play,
   Pause,
@@ -28,6 +28,15 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
   const hlsRef = useRef<Hls | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout>()
+  const onErrorRef = useRef(onError)
+  const recoveryRef = useRef({ network: 0, media: 0 })
+  const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  const settingsPanelRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = useReducedMotion()
+
+  useEffect(() => {
+    onErrorRef.current = onError
+  }, [onError])
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -47,6 +56,27 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
     const video = videoRef.current
     if (!video) return
 
+    let nativeSource = false
+    let active = true
+    const handleNativeLoadedMetadata = () => {
+      if (active) setIsBuffering(false)
+    }
+    const handleNativeError = () => {
+      if (!active) return
+      setError(true)
+      setIsBuffering(false)
+      onErrorRef.current?.()
+    }
+
+    setError(false)
+    setIsBuffering(true)
+    setCurrentTime(0)
+    setDuration(0)
+    setIsPlaying(false)
+    setQualities([])
+    setCurrentQuality(-1)
+    recoveryRef.current = { network: 0, media: 0 }
+
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -63,30 +93,59 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
       })
 
       hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          console.error('HLS fatal error:', data)
-          setError(true)
-          setIsBuffering(false)
-          onError?.()
+        if (!active || !data.fatal) return
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && recoveryRef.current.network < 1) {
+          recoveryRef.current.network += 1
+          hls.startLoad()
+          return
         }
+
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recoveryRef.current.media < 1) {
+          recoveryRef.current.media += 1
+          hls.recoverMediaError()
+          return
+        }
+
+        setError(true)
+        setIsBuffering(false)
+        onErrorRef.current?.()
       })
 
       hlsRef.current = hls
 
       return () => {
+        active = false
+        if (hlsRef.current === hls) hlsRef.current = null
         hls.destroy()
       }
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS support (Safari)
-      video.src = src
-      video.addEventListener('loadedmetadata', () => {
-        setIsBuffering(false)
-      })
+      nativeSource = true
+      video.addEventListener('loadedmetadata', handleNativeLoadedMetadata)
+      video.addEventListener('error', handleNativeError)
+      try {
+        video.src = src
+        video.load()
+      } catch {
+        handleNativeError()
+      }
     } else {
       setError(true)
       setIsBuffering(false)
     }
-  }, [src, onError])
+
+    return () => {
+      active = false
+      if (nativeSource) {
+        video.removeEventListener('loadedmetadata', handleNativeLoadedMetadata)
+        video.removeEventListener('error', handleNativeError)
+        video.pause()
+        video.removeAttribute('src')
+        video.load()
+      }
+    }
+  }, [src])
 
   // Video event listeners
   useEffect(() => {
@@ -119,7 +178,11 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
 
   // Auto-hide controls
   useEffect(() => {
-    if (showControls && isPlaying) {
+    const settingsHasFocus = Boolean(
+      settingsPanelRef.current?.contains(document.activeElement)
+    )
+
+    if (showControls && isPlaying && !showSettings && !settingsHasFocus) {
       controlsTimeoutRef.current = setTimeout(() => {
         setShowControls(false)
       }, 3000)
@@ -130,13 +193,28 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
         clearTimeout(controlsTimeoutRef.current)
       }
     }
-  }, [showControls, isPlaying])
+  }, [showControls, isPlaying, showSettings])
 
-  // Keyboard shortcuts
+  // Do not hide or unmount player controls while keyboard focus is inside them.
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
+    if (!isPlaying || typeof document === 'undefined') return
+
+    const handleFocusIn = (event: FocusEvent) => {
+      if (containerRef.current?.contains(event.target as Node)) {
+        setShowControls(true)
+      }
+    }
+
+    document.addEventListener('focusin', handleFocusIn)
+    return () => document.removeEventListener('focusin', handleFocusIn)
+  }, [isPlaying])
+
+  // Keyboard shortcuts are scoped to the player so page inputs and other controls keep their keys.
+  const handlePlayerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       const video = videoRef.current
-      if (!video) return
+      const target = e.target as HTMLElement
+      if (!video || target.closest('input, textarea, select, [contenteditable="true"], button')) return
+      if (target !== e.currentTarget && target !== video) return
 
       switch (e.key) {
         case ' ':
@@ -144,9 +222,11 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
           togglePlay()
           break
         case 'ArrowLeft':
+          e.preventDefault()
           video.currentTime = Math.max(0, video.currentTime - 10)
           break
         case 'ArrowRight':
+          e.preventDefault()
           video.currentTime = Math.min(video.duration, video.currentTime + 10)
           break
         case 'ArrowUp':
@@ -159,19 +239,16 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
           break
         case 'f':
         case 'F':
+          e.preventDefault()
           toggleFullscreen()
           break
         case 'm':
         case 'M':
+          e.preventDefault()
           setIsMuted((prev) => !prev)
           break
       }
-    }
-
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }
 
   // Update video volume
   useEffect(() => {
@@ -199,7 +276,11 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
     if (!video) return
 
     if (video.paused) {
-      video.play()
+      void video.play().catch(() => {
+        setError(true)
+        setIsBuffering(false)
+        onErrorRef.current?.()
+      })
     } else {
       video.pause()
     }
@@ -213,9 +294,13 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
     if (!containerRef.current) return
 
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen()
+      void containerRef.current.requestFullscreen().catch(() => {
+        // Fullscreen can be denied by browser policy; keep playback usable.
+      })
     } else {
-      document.exitFullscreen()
+      void document.exitFullscreen().catch(() => {
+        // Fullscreen can be denied by browser policy; keep playback usable.
+      })
     }
   }
 
@@ -228,19 +313,71 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
     video.currentTime = pos * video.duration
   }
 
+  const handleSeekByKeyboard = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current
+    const nextTime = Number(e.currentTarget.value)
+    if (!video || !Number.isFinite(video.duration) || !Number.isFinite(nextTime)) return
+    video.currentTime = Math.max(0, Math.min(video.duration, nextTime))
+  }
+
   const handleQualityChange = (index: number) => {
     if (hlsRef.current) {
       hlsRef.current.currentLevel = index
       setCurrentQuality(index)
       setShowSettings(false)
+      settingsButtonRef.current?.focus()
+    }
+  }
+
+  const handlePlaybackRateChange = (rate: number) => {
+    setPlaybackRate(rate)
+    setShowSettings(false)
+    settingsButtonRef.current?.focus()
+  }
+
+  useEffect(() => {
+    if (showSettings) {
+      settingsPanelRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    }
+  }, [showSettings])
+
+  const handleSettingsKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setShowSettings(false)
+      settingsButtonRef.current?.focus()
     }
   }
 
   const handleRetry = () => {
     setError(false)
     setIsBuffering(true)
+    setCurrentTime(0)
+    setDuration(0)
+    recoveryRef.current = { network: 0, media: 0 }
     if (hlsRef.current) {
+      const video = videoRef.current
+      video?.pause()
+      if (video) {
+        video.currentTime = 0
+      }
+      hlsRef.current.stopLoad()
       hlsRef.current.loadSource(src)
+      hlsRef.current.startLoad()
+    } else if (videoRef.current?.canPlayType('application/vnd.apple.mpegurl')) {
+      const video = videoRef.current
+      if (video) {
+        video.pause()
+        video.currentTime = 0
+        try {
+          video.src = src
+          video.load()
+        } catch {
+          setError(true)
+          setIsBuffering(false)
+          onErrorRef.current?.()
+        }
+      }
     }
   }
 
@@ -255,21 +392,29 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
     setShowControls(true)
   }
 
+  const handlePlayerSurfaceClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
+      event.currentTarget.focus()
+      togglePlay()
+    }
+  }
+
   if (error) {
     return (
-      <div className="relative w-full h-full bg-zinc-950 flex flex-col items-center justify-center p-8 text-center">
+      <div role="alert" className="relative w-full h-full bg-zinc-950 flex flex-col items-center justify-center p-8 text-center">
         <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8 text-red-400" />
         </div>
         <h3 className="text-white font-semibold mb-2">Stream Error</h3>
-        <p className="text-white/50 text-sm mb-6 max-w-sm">
+        <p className="mb-6 max-w-sm text-sm text-muted-foreground">
           Failed to load the stream. This might be a temporary issue.
         </p>
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          type="button"
+          whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
+          whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
           onClick={handleRetry}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-black rounded-lg text-sm font-semibold"
+          className="flex min-h-11 min-w-[44px] items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <RefreshCw className="w-4 h-4" />
           Retry
@@ -281,14 +426,19 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-black group"
+      tabIndex={0}
+      aria-label={title ? `Video player: ${title}` : 'Video player'}
+      onKeyDown={handlePlayerKeyDown}
+      className="relative w-full h-full bg-black group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      onClick={togglePlay}
+      onClick={handlePlayerSurfaceClick}
     >
       <video
         ref={videoRef}
         className="w-full h-full"
+        tabIndex={-1}
+        aria-hidden="true"
         playsInline
       />
 
@@ -310,9 +460,12 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
       <AnimatePresence>
         {!isPlaying && !isBuffering && showControls && (
           <motion.button
+            type="button"
+            aria-label="Play video"
+            whileHover={prefersReducedMotion ? undefined : { scale: 1 }}
             initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1, transition: { duration: prefersReducedMotion ? 0 : 0.2 } }}
+            exit={{ scale: prefersReducedMotion ? 1 : 0.8, opacity: 0, transition: { duration: prefersReducedMotion ? 0 : 0.2 } }}
             onClick={(e) => {
               e.stopPropagation()
               togglePlay()
@@ -335,23 +488,39 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Progress Bar */}
-            <div
-              className="w-full h-1 bg-white/20 rounded-full mb-4 cursor-pointer group/progress"
-              onClick={handleSeek}
-            >
+            <div className="relative mb-4">
               <div
-                className="h-full bg-primary rounded-full relative transition-all group-hover/progress:h-1.5"
-                style={{ width: `${(currentTime / duration) * 100}%` }}
+                className="w-full h-1 bg-white/20 rounded-full cursor-pointer group/progress"
+                onClick={handleSeek}
+                aria-hidden="true"
               >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity" />
+                <div
+                  className="h-full bg-primary rounded-full relative transition-all group-hover/progress:h-1.5"
+                  style={{ width: `${(currentTime / duration) * 100}%` }}
+                >
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity" />
+                </div>
               </div>
+              <input
+                type="range"
+                aria-label="Seek video"
+                min={0}
+                max={Number.isFinite(duration) ? duration : 0}
+                step={1}
+                value={Number.isFinite(currentTime) ? Math.min(currentTime, Number.isFinite(duration) ? duration : 0) : 0}
+                onChange={handleSeekByKeyboard}
+                disabled={!Number.isFinite(duration) || duration <= 0}
+                className="absolute inset-x-0 -top-3 h-7 w-full cursor-pointer opacity-0 focus-visible:opacity-100 focus-visible:accent-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed"
+              />
             </div>
 
             <div className="flex items-center gap-4">
               {/* Play/Pause */}
               <button
+                type="button"
+                aria-label={isPlaying ? 'Pause video' : 'Play video'}
                 onClick={togglePlay}
-                className="text-white hover:text-primary transition-colors"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded text-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
               >
                 {isPlaying ? (
                   <Pause className="w-6 h-6" fill="currentColor" />
@@ -362,22 +531,26 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
 
               {/* Skip Buttons */}
               <button
+                type="button"
+                aria-label="Seek backward 10 seconds"
                 onClick={() => {
                   if (videoRef.current) {
                     videoRef.current.currentTime = Math.max(0, currentTime - 10)
                   }
                 }}
-                className="text-white hover:text-primary transition-colors"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded text-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
               >
                 <SkipBack className="w-5 h-5" />
               </button>
               <button
+                type="button"
+                aria-label="Seek forward 10 seconds"
                 onClick={() => {
                   if (videoRef.current) {
                     videoRef.current.currentTime = Math.min(duration, currentTime + 10)
                   }
                 }}
-                className="text-white hover:text-primary transition-colors"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded text-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
               >
                 <SkipForward className="w-5 h-5" />
               </button>
@@ -385,8 +558,11 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
               {/* Volume */}
               <div className="flex items-center gap-2 group/volume">
                 <button
+                  type="button"
+                  aria-label={isMuted || volume === 0 ? 'Unmute video' : 'Mute video'}
+                  aria-pressed={isMuted || volume === 0}
                   onClick={toggleMute}
-                  className="text-white hover:text-primary transition-colors"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded text-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
                 >
                   {isMuted || volume === 0 ? (
                     <VolumeX className="w-5 h-5" />
@@ -396,12 +572,13 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
                 </button>
                 <input
                   type="range"
+                  aria-label="Volume"
                   min="0"
                   max="1"
                   step="0.01"
                   value={volume}
                   onChange={(e) => setVolume(parseFloat(e.target.value))}
-                  className="w-0 group-hover/volume:w-20 transition-all accent-primary"
+                  className="w-0 group-hover/volume:w-20 focus-visible:w-20 transition-all accent-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 />
               </div>
 
@@ -415,8 +592,13 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
               {/* Settings */}
               <div className="relative">
                 <button
+                  ref={settingsButtonRef}
+                  type="button"
+                  aria-label="Playback settings"
+                  aria-expanded={showSettings}
+                  aria-controls="hls-player-settings"
                   onClick={() => setShowSettings(!showSettings)}
-                  className="text-white hover:text-primary transition-colors"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded text-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
@@ -424,25 +606,32 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
                 <AnimatePresence>
                   {showSettings && (
                     <motion.div
+                      ref={settingsPanelRef}
+                      id="hls-player-settings"
+                      role="group"
+                      aria-label="Playback settings"
+                      onKeyDown={handleSettingsKeyDown}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute bottom-full right-0 mb-2 bg-zinc-900 rounded-lg p-2 min-w-[200px]"
+                      className="absolute bottom-full right-0 z-40 mb-2 max-h-[70dvh] min-w-[200px] overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-zinc-900 p-2 shadow-xl"
                     >
                       {/* Playback Speed */}
                       <div className="mb-2">
-                        <p className="text-white/60 text-xs mb-1 px-2">Speed</p>
+                        <p className="mb-1 px-2 text-xs text-muted-foreground">Speed</p>
                         <div className="flex flex-wrap gap-1">
                           {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
                             <button
                               key={rate}
-                              onClick={() => setPlaybackRate(rate)}
-                              className={`px-3 py-1 rounded text-xs transition-colors ${
+                              type="button"
+                              aria-pressed={playbackRate === rate}
+                              onClick={() => handlePlaybackRateChange(rate)}
+                              className={`min-h-11 min-w-11 px-3 py-1 rounded text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
                                 playbackRate === rate
                                   ? 'bg-primary text-black'
                                   : 'bg-white/10 text-white hover:bg-white/20'
                               }`}
-                            >
+                              >
                               {rate}x
                             </button>
                           ))}
@@ -452,10 +641,12 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
                       {/* Quality */}
                       {qualities.length > 0 && (
                         <div>
-                          <p className="text-white/60 text-xs mb-1 px-2">Quality</p>
+                          <p className="mb-1 px-2 text-xs text-muted-foreground">Quality</p>
                           <button
+                            type="button"
+                            aria-pressed={currentQuality === -1}
                             onClick={() => handleQualityChange(-1)}
-                            className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                            className={`min-h-11 w-full text-left px-3 py-2 rounded text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary motion-reduce:transition-none ${
                               currentQuality === -1
                                 ? 'bg-primary text-black'
                                 : 'text-white hover:bg-white/10'
@@ -466,8 +657,10 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
                           {qualities.map((quality, index) => (
                             <button
                               key={index}
+                              type="button"
+                              aria-pressed={currentQuality === index}
                               onClick={() => handleQualityChange(index)}
-                              className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                              className={`min-h-11 w-full text-left px-3 py-2 rounded text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary motion-reduce:transition-none ${
                                 currentQuality === index
                                   ? 'bg-primary text-black'
                                   : 'text-white hover:bg-white/10'
@@ -485,8 +678,10 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
 
               {/* Fullscreen */}
               <button
+                type="button"
+                aria-label="Enter fullscreen"
                 onClick={toggleFullscreen}
-                className="text-white hover:text-primary transition-colors"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded text-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
               >
                 <Maximize className="w-5 h-5" />
               </button>

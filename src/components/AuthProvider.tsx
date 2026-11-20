@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -29,8 +30,12 @@ interface AuthContextValue {
   configured: boolean
   loading: boolean
   syncing: boolean
+  syncingUserId: string | null
   user: User | null
   profile: UserProfile | null
+  profileError: string | null
+  librarySyncError: boolean
+  retryLibrarySync: () => Promise<boolean>
   signIn: (email: string, password: string) => Promise<AuthResult>
   signUp: (email: string, password: string, displayName?: string) => Promise<AuthResult>
   signOut: () => Promise<void>
@@ -53,36 +58,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [syncing, setSyncing] = useState(false)
+  const [syncingUserId, setSyncingUserId] = useState<string | null>(null)
+  const profileRequestId = useRef(0)
+  const librarySyncRequestId = useRef(0)
+  const currentUserIdRef = useRef<string | null>(null)
 
-  const loadProfile = useCallback(async (userId: string) => {
+  const loadProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
     const supabase = getSupabase()
-    if (!supabase) return
+    if (!supabase) return null
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, avatar_url, created_at')
       .eq('id', userId)
       .maybeSingle()
 
     if (data) {
-      setProfile(data)
-      return
+      if (data.id !== userId) throw new Error('Profile ownership did not match the active account.')
+      return data
     }
 
-    const { data: authUser } = await supabase.auth.getUser()
+    if (error) {
+      throw new Error('Unable to load your account profile.')
+    }
+
+    const { data: authUser, error: authError } = await supabase.auth.getUser()
+    if (authError || authUser.user?.id !== userId) {
+      throw new Error('Your session changed while loading your profile. Please refresh.')
+    }
     const fallbackName =
       (authUser.user?.user_metadata?.display_name as string | undefined) ??
       authUser.user?.email?.split('@')[0] ??
       null
 
-    const { data: created } = await supabase
+    const { data: created, error: createError } = await supabase
       .from('profiles')
       .upsert({ id: userId, display_name: fallbackName })
       .select('id, display_name, avatar_url, created_at')
       .maybeSingle()
 
-    if (created) setProfile(created)
+    if (createError || !created) {
+      throw new Error('Unable to prepare your account profile. Please try again.')
+    }
+
+    return created
   }, [])
+
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [librarySyncError, setLibrarySyncError] = useState(false)
 
   useEffect(() => {
     const supabase = getSupabase()
@@ -92,16 +115,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false
+    let authEventObserved = false
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    })
+    void supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (cancelled || authEventObserved) return
+        if (error) {
+          setUser(null)
+          setProfileError('Unable to restore your session. Please refresh the page.')
+          return
+        }
+        setUser(data.session?.user ?? null)
+      })
+      .catch(() => {
+        if (!cancelled && !authEventObserved) {
+          setUser(null)
+          setProfileError('Unable to restore your session. Please refresh the page.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled && !authEventObserved) setLoading(false)
+      })
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      authEventObserved = true
       setUser(session?.user ?? null)
       setLoading(false)
+      setProfileError(null)
     })
 
     return () => {
@@ -111,26 +151,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const userId = user?.id ?? null
+  currentUserIdRef.current = userId
 
   useEffect(() => {
     if (!userId) {
+      profileRequestId.current += 1
+      librarySyncRequestId.current += 1
       setCloudUser(null)
       setProfile(null)
       setSyncing(false)
+      setSyncingUserId(null)
+      setProfileError(null)
+      setLibrarySyncError(false)
       return
     }
 
+    const requestId = profileRequestId.current + 1
+    profileRequestId.current = requestId
+    const syncRequestId = librarySyncRequestId.current + 1
+    librarySyncRequestId.current = syncRequestId
     let cancelled = false
+    setProfile(null)
+    setProfileError(null)
+    setLibrarySyncError(false)
     setCloudUser(userId)
     setSyncing(true)
+    setSyncingUserId(userId)
 
-    syncOnSignIn(userId).finally(() => {
-      if (!cancelled) setSyncing(false)
-    })
-    void loadProfile(userId)
+    const profileResult = loadProfile(userId)
+      .then((nextProfile) => ({ nextProfile, failed: false }))
+      .catch(() => ({ nextProfile: null, failed: true }))
+
+    void Promise.all([syncOnSignIn(userId), profileResult])
+      .then(([syncSucceeded, result]) => {
+        if (cancelled || profileRequestId.current !== requestId) return
+        if (librarySyncRequestId.current === syncRequestId) {
+          setLibrarySyncError(!syncSucceeded)
+        }
+        if (result.failed) {
+          setProfile(null)
+          setProfileError('Your account profile could not be loaded. Please retry.')
+        } else if (result.nextProfile) {
+          setProfile(result.nextProfile)
+        }
+      })
+      .finally(() => {
+        if (!cancelled && profileRequestId.current === requestId) {
+          setSyncing(false)
+          setSyncingUserId(null)
+        }
+      })
 
     return () => {
       cancelled = true
+      if (profileRequestId.current === requestId) {
+        profileRequestId.current += 1
+      }
     }
   }, [userId, loadProfile])
 
@@ -167,29 +243,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase()
     if (!supabase) return
 
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      throw new Error('Unable to sign out. Please try again.')
+    }
     detachUser()
     setUser(null)
     setProfile(null)
+    setSyncing(false)
+    setSyncingUserId(null)
+    profileRequestId.current += 1
+    librarySyncRequestId.current += 1
+    setProfileError(null)
+    setLibrarySyncError(false)
   }, [])
 
   const refreshProfile = useCallback(async () => {
-    if (userId) await loadProfile(userId)
-  }, [userId, loadProfile])
+    const requestedUserId = currentUserIdRef.current
+    if (!requestedUserId) return
+    const requestId = profileRequestId.current
+    setProfileError(null)
+    try {
+      const nextProfile = await loadProfile(requestedUserId)
+      if (
+        nextProfile &&
+        currentUserIdRef.current === requestedUserId &&
+        profileRequestId.current === requestId
+      ) {
+        setProfile(nextProfile)
+      }
+    } catch {
+      if (currentUserIdRef.current === requestedUserId && profileRequestId.current === requestId) {
+        setProfileError('Your account profile could not be loaded. Please retry.')
+      }
+      throw new Error('Unable to refresh your account profile.')
+    }
+  }, [loadProfile])
+
+  const retryLibrarySync = useCallback(async () => {
+    const requestedUserId = currentUserIdRef.current
+    if (!requestedUserId) return false
+
+    const requestId = profileRequestId.current
+    const syncRequestId = librarySyncRequestId.current + 1
+    librarySyncRequestId.current = syncRequestId
+    setSyncing(true)
+    setSyncingUserId(requestedUserId)
+    setLibrarySyncError(false)
+    const succeeded = await syncOnSignIn(requestedUserId)
+
+    if (
+      currentUserIdRef.current !== requestedUserId ||
+      profileRequestId.current !== requestId ||
+      librarySyncRequestId.current !== syncRequestId
+    ) {
+      return false
+    }
+
+    setSyncing(false)
+    setSyncingUserId(null)
+    setLibrarySyncError(!succeeded)
+    return succeeded
+  }, [])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       configured: isSupabaseConfigured,
       loading,
       syncing,
+      syncingUserId,
       user,
       profile,
+      profileError,
+      librarySyncError,
+      retryLibrarySync,
       signIn,
       signUp,
       signOut,
       refreshProfile,
     }),
-    [loading, syncing, user, profile, signIn, signUp, signOut, refreshProfile]
+    [loading, syncing, syncingUserId, user, profile, profileError, librarySyncError, signIn, signUp, signOut, refreshProfile, retryLibrarySync]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

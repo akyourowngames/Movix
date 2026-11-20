@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  getDiscoverMovies,
-  getDiscoverTV,
-  getTrendingMoviesDay,
-  getTrendingTVDay,
+  getCatalogDiscover,
+  getCatalogTrending,
   type DiscoverParams,
   type TMDBMovie,
 } from '@/lib/tmdb'
@@ -22,10 +20,8 @@ const fetchCategory = async (
   category: CategoryDef,
   page: number,
   today: string
-): Promise<{ results?: TMDBMovie[]; total_pages?: number; total_results?: number }> => {
-  if (category.id === 'trending') {
-    return media === 'movie' ? getTrendingMoviesDay(page) : getTrendingTVDay(page)
-  }
+): Promise<{ ok: boolean; data: { results?: TMDBMovie[]; total_pages?: number; total_results?: number } }> => {
+  if (category.id === 'trending') return getCatalogTrending(media, page)
 
   const params: DiscoverParams = {
     ...(category[media] ?? {}),
@@ -37,7 +33,7 @@ const fetchCategory = async (
     else params['first_air_date.lte'] = today
   }
 
-  return media === 'movie' ? getDiscoverMovies(params) : getDiscoverTV(params)
+  return getCatalogDiscover(media, params)
 }
 
 const interleave = (lists: { media: Media; items: TMDBMovie[] }[]) => {
@@ -73,9 +69,19 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const responses = await Promise.all(
+  const settled = await Promise.all(
     active.map((media) => fetchCategory(media, category, page, today))
   )
+
+  const successful = settled.filter((response) => response.ok)
+  if (successful.length === 0) {
+    return NextResponse.json(
+      { results: [], error: 'catalog_unavailable', category: category.id, type },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    )
+  }
+
+  const responses = settled.map((response) => response.data)
 
   const lists = active.map((media, index) => ({
     media,

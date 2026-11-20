@@ -10,6 +10,7 @@ import {
   getTrendingMoviesDay,
   getTrendingMoviesWeek,
   getTrendingTVDay,
+  type TMDBListResult,
   type TMDBMovie,
 } from '@/lib/tmdb'
 import {
@@ -210,9 +211,36 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
       }),
     ])
 
+    const sourceResults: TMDBListResult[] = [
+      movieTrendRes,
+      tvTrendRes,
+      nowPlayingRes,
+      onAirRes,
+      hiMovieRes,
+      hiTvRes,
+      topMovieRes,
+      topTvRes,
+      gemMovieRes,
+      gemTvRes,
+      bollyRes,
+      indianTvRes,
+      southRes,
+      hollyRes,
+      kdramaRes,
+      animeRes,
+      actionRes,
+      comedyRes,
+    ]
+    const successfulSources = sourceResults.filter((result) => result.ok).length
+
+    if (successfulSources === 0) {
+      throw new Error('Home feed sources unavailable')
+    }
+
     let movieTrend = toResults(movieTrendRes)
     if (movieTrend.length === 0) {
-      movieTrend = toResults(await getTrendingMoviesWeek())
+      const weeklyTrend = await getTrendingMoviesWeek()
+      if (weeklyTrend.ok) movieTrend = toResults(weeklyTrend)
     }
 
     const movieTrendItems = movieTrend.map((raw, index) =>

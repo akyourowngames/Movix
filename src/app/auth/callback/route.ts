@@ -5,9 +5,14 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const requestedNext = searchParams.get('next') ?? '/'
-  const next = requestedNext.startsWith('/') && !requestedNext.startsWith('//')
-    ? requestedNext
-    : '/'
+  const nextUrl = new URL(requestedNext, origin)
+  const next =
+    requestedNext.startsWith('/') &&
+    !requestedNext.startsWith('//') &&
+    !requestedNext.includes('\\') &&
+    nextUrl.origin === origin
+      ? `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+      : '/'
 
   if (code) {
     const supabase = createServerSupabaseClient()

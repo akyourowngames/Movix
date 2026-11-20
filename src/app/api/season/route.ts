@@ -30,7 +30,15 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const data = await getSeasonEpisodes(tvId, season)
+  let data
+  try {
+    data = await getSeasonEpisodes(tvId, season)
+  } catch {
+    return NextResponse.json(
+      { episodes: [], error: 'season_unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    )
+  }
   const episodes = (data.episodes || []).map((episode: EpisodeLike) => ({
     id: episode.id,
     name: episode.name,

@@ -46,8 +46,14 @@ type BrowserSupabase = NonNullable<ReturnType<typeof getSupabase>>
 // Actions fired right after a reload can run before AuthProvider sets cloudUserId.
 const resolveUserId = async (supabase: BrowserSupabase) => {
   if (cloudUserId) return cloudUserId
-  const { data } = await supabase.auth.getUser()
-  return data.user?.id ?? null
+  const { data, error } = await supabase.auth.getUser()
+  return error ? null : data.user?.id ?? null
+}
+
+const isCurrentCloudUser = async (supabase: BrowserSupabase, userId: string) => {
+  if (cloudUserId && cloudUserId !== userId) return false
+  const { data, error } = await supabase.auth.getUser()
+  return !error && data.user?.id === userId && (!cloudUserId || cloudUserId === userId)
 }
 
 const mediaType = (type: MediaKind) => type
@@ -67,6 +73,7 @@ export const fetchPlayback = async (tmdbId: number, type: MediaKind) => {
     .eq('tmdb_id', tmdbId)
     .maybeSingle()
 
+  if (!(await isCurrentCloudUser(supabase, userId))) return null
   return data ?? null
 }
 
@@ -101,6 +108,14 @@ export const fetchLibrary = async (userId: string): Promise<CloudLibrary> => {
       .limit(MAX_ROWS),
   ])
 
+  const failedQuery = [history, watchlist, likes, playback].find((result) => result.error)
+  if (failedQuery?.error) {
+    throw new Error('Unable to load your cloud library.')
+  }
+  if (!(await isCurrentCloudUser(supabase, userId))) {
+    throw new Error('Your account changed while loading your library.')
+  }
+
   return {
     history: history.data ?? [],
     watchlist: watchlist.data ?? [],
@@ -114,6 +129,7 @@ export const pushView = async (item: Omit<HistoryItem, 'at'>) => {
   if (!supabase) return
   const userId = await resolveUserId(supabase)
   if (!userId) return
+  if (!(await isCurrentCloudUser(supabase, userId))) return
 
   const { error } = await supabase.from('watch_history').upsert(
     {
@@ -143,6 +159,7 @@ export const pushPlayback = async (entry: {
   if (!supabase) return
   const userId = await resolveUserId(supabase)
   if (!userId) return
+  if (!(await isCurrentCloudUser(supabase, userId))) return
 
   const { error } = await supabase.from('playback').upsert(
     {
@@ -168,18 +185,20 @@ export const pushLike = async (
   if (!supabase) return
   const userId = await resolveUserId(supabase)
   if (!userId) return
+  if (!(await isCurrentCloudUser(supabase, userId))) return
 
   if (!liked) {
-    await supabase
+    const { error } = await supabase
       .from('likes')
       .delete()
       .eq('user_id', userId)
       .eq('media_type', mediaType(item.type))
       .eq('tmdb_id', item.id)
+    if (error) console.warn('Failed to remove favorite:', error.message)
     return
   }
 
-  await supabase.from('likes').upsert(
+  const { error } = await supabase.from('likes').upsert(
     {
       user_id: userId,
       media_type: mediaType(item.type),
@@ -190,6 +209,7 @@ export const pushLike = async (
     },
     { onConflict: 'user_id,media_type,tmdb_id' }
   )
+  if (error) console.warn('Failed to sync favorite:', error.message)
 }
 
 export const pushWatchlist = async (
@@ -200,18 +220,20 @@ export const pushWatchlist = async (
   if (!supabase) return
   const userId = await resolveUserId(supabase)
   if (!userId) return
+  if (!(await isCurrentCloudUser(supabase, userId))) return
 
   if (!added) {
-    await supabase
+    const { error } = await supabase
       .from('watchlist')
       .delete()
       .eq('user_id', userId)
       .eq('media_type', mediaType(item.type))
       .eq('tmdb_id', item.id)
+    if (error) console.warn('Failed to remove from watchlist:', error.message)
     return
   }
 
-  await supabase.from('watchlist').upsert(
+  const { error } = await supabase.from('watchlist').upsert(
     {
       user_id: userId,
       media_type: mediaType(item.type),
@@ -223,6 +245,7 @@ export const pushWatchlist = async (
     },
     { onConflict: 'user_id,media_type,tmdb_id' }
   )
+  if (error) console.warn('Failed to sync watchlist:', error.message)
 }
 
 const mergeLocalIntoCloud = async (userId: string, library: CloudLibrary) => {
@@ -297,7 +320,10 @@ const mergeLocalIntoCloud = async (userId: string, library: CloudLibrary) => {
     )
   }
 
-  await Promise.all(writes)
+  const results = await Promise.all(writes)
+  if (results.some((result) => Boolean((result as { error?: unknown }).error))) {
+    throw new Error('Unable to sync your saved library.')
+  }
   return true
 }
 
@@ -342,24 +368,41 @@ const hydrateLocal = (library: CloudLibrary) => {
  */
 export const syncOnSignIn = async (userId: string) => {
   try {
+    const supabase = getSupabase()
+    if (!supabase) return false
+
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || authData.user?.id !== userId) return false
+
     const lastUser =
       typeof window !== 'undefined' ? window.localStorage.getItem(CLOUD_USER_KEY) : null
+
+    let library = await fetchLibrary(userId)
+    const { data: latestAuthData, error: latestAuthError } = await supabase.auth.getUser()
+    if (latestAuthError || latestAuthData.user?.id !== userId) return false
+
+    const merged = await mergeLocalIntoCloud(userId, library)
+    if (merged) library = await fetchLibrary(userId)
+
+    const { data: finalAuthData, error: finalAuthError } = await supabase.auth.getUser()
+    if (
+      finalAuthError ||
+      finalAuthData.user?.id !== userId ||
+      (cloudUserId !== null && cloudUserId !== userId)
+    ) return false
 
     if (lastUser && lastUser !== userId) {
       clearProfile()
     }
-
-    let library = await fetchLibrary(userId)
-    const merged = await mergeLocalIntoCloud(userId, library)
-    if (merged) library = await fetchLibrary(userId)
-
     hydrateLocal(library)
 
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(CLOUD_USER_KEY, userId)
     }
+    return true
   } catch (error) {
     console.warn('Profile sync failed:', error)
+    return false
   }
 }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchMovies, searchWebSeries, type TMDBMovie } from '@/lib/tmdb'
+import { searchCatalog, type TMDBMovie } from '@/lib/tmdb'
 import { toCatalogItem } from '@/lib/catalog'
 
 export async function GET(request: NextRequest) {
@@ -19,19 +19,22 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const [movieData, tvData] = await Promise.all([
-    type === 'tv' ? null : searchMovies(query),
-    type === 'movie' ? null : searchWebSeries(query),
-  ])
+  const requested = type === 'tv' ? ['tv'] : type === 'movie' ? ['movie'] : ['movie', 'tv']
+  const responses = await Promise.all(
+    requested.map((media) => searchCatalog(media as 'movie' | 'tv', query))
+  )
 
-  const results = [
-    ...(movieData?.results || []).map((item: TMDBMovie) =>
-      toCatalogItem(item, 'movie')
-    ),
-    ...(tvData?.results || []).map((item: TMDBMovie) =>
-      toCatalogItem(item, 'tv')
-    ),
-  ]
+  const successful = responses.filter((response) => response.ok)
+  if (successful.length === 0) {
+    return NextResponse.json(
+      { results: [], error: 'search_unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    )
+  }
+
+  const results = responses.flatMap((response, index) =>
+    response.results.map((item: TMDBMovie) => toCatalogItem(item, requested[index] as 'movie' | 'tv'))
+  )
 
   return NextResponse.json(
     { results },

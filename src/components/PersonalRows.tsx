@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import MovieCarousel from './MovieCarousel'
+import { MediaSkeleton } from '@/components/ui/MediaSkeleton'
 import { getImageUrl, type CatalogItem } from '@/lib/catalog'
 import { genreNamesFor } from '@/lib/genres'
 import type { Movie } from '@/lib/data'
@@ -24,8 +25,13 @@ const toMovie = (item: CatalogItem): Movie => ({
   title: item.title,
   poster: getImageUrl(item.poster_path, 'w342'),
   genre: genreNamesFor(item.genre_ids),
-  year: item.release_date ? new Date(item.release_date).getFullYear() : undefined,
-  rating: Math.round(item.vote_average * 10) / 10,
+  year:
+    item.release_date && Number.isFinite(new Date(item.release_date).getTime())
+      ? new Date(item.release_date).getFullYear()
+      : undefined,
+  rating: Number.isFinite(item.vote_average)
+    ? Math.round(item.vote_average * 10) / 10
+    : 0,
   quality: item.vote_average >= 7.5 ? '4K' : 'HD',
   mediaType: item.media_type,
   language:
@@ -38,20 +44,12 @@ const toMovie = (item: CatalogItem): Movie => ({
 
 function PersonalSkeleton({ label }: { label: string }) {
   return (
-    <section className="relative py-12 overflow-hidden">
-      <div className="container mx-auto px-6 max-w-7xl mb-6">
-        <div className="h-9 w-56 bg-white/5 rounded animate-pulse mb-2" />
-        <div className="h-3 w-32 bg-white/5 rounded animate-pulse" />
+    <section className="page-shell py-8">
+      <div className="mb-5">
+        <div className="skeleton-surface mb-2 h-7 w-52 rounded" aria-hidden="true" />
+        <div className="skeleton-surface h-3 w-36 rounded" aria-hidden="true" />
       </div>
-      <div className="flex gap-6 px-6 overflow-hidden">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div
-            key={index}
-            className="flex-none w-[200px] md:w-[240px] aspect-[2/3] rounded-xl bg-white/5 animate-pulse"
-          />
-        ))}
-      </div>
-      <span className="sr-only">{label} loading</span>
+      <MediaSkeleton count={6} label={`${label} loading`} className="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5" />
     </section>
   )
 }
@@ -60,6 +58,8 @@ export default function PersonalRows({ kind }: { kind: Kind }) {
   const { profile, ready } = useLocalProfile()
   const [items, setItems] = useState<CatalogItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
 
   const seed = kind === 'because-watched' ? mostRecentSeed(profile) : undefined
 
@@ -100,6 +100,7 @@ export default function PersonalRows({ kind }: { kind: Kind }) {
     if (!ready || !query) {
       setItems([])
       setLoading(false)
+      setError(false)
       return
     }
 
@@ -107,26 +108,35 @@ export default function PersonalRows({ kind }: { kind: Kind }) {
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
       setItems(cached.items)
       setLoading(false)
+      setError(false)
       return
     }
 
     const controller = new AbortController()
     setLoading(true)
+    setError(false)
 
     fetch(`/api/recommend?${query}`, { signal: controller.signal })
-      .then((res) => (res.ok ? res.json() : { results: [] }))
+      .then((res) => {
+        if (!res.ok) throw new Error(`Recommendation request failed (${res.status})`)
+        return res.json()
+      })
       .then((data) => {
+        if (data.reason === 'unavailable') throw new Error('Recommendation data unavailable')
         const results: CatalogItem[] = data.results || []
         cache.set(query, { items: results, ts: Date.now() })
         setItems(results)
         setLoading(false)
       })
       .catch((err) => {
-        if ((err as Error).name !== 'AbortError') setLoading(false)
+        if ((err as Error).name !== 'AbortError') {
+          setError(true)
+          setLoading(false)
+        }
       })
 
     return () => controller.abort()
-  }, [ready, query])
+  }, [ready, query, retryKey])
 
   if (!ready) return null
 
@@ -135,6 +145,28 @@ export default function PersonalRows({ kind }: { kind: Kind }) {
       <PersonalSkeleton
         label={kind === 'for-you' ? 'For You' : 'Because You Watched'}
       />
+    )
+  }
+
+  if (error && items.length === 0) {
+    return (
+      <section className="container mx-auto max-w-7xl px-6 py-8" aria-labelledby={`${kind}-recommendations-error`}>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <div>
+            <h2 id={`${kind}-recommendations-error`} className="font-semibold">
+              {kind === 'for-you' ? 'For You' : 'Because You Watched'} isn&apos;t available right now
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">Your watch history is unchanged. Try loading recommendations again.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRetryKey((key) => key + 1)}
+            className="min-h-11 rounded-full border border-white/15 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+          >
+            Retry
+          </button>
+        </div>
+      </section>
     )
   }
 

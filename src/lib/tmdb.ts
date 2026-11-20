@@ -1,3 +1,5 @@
+import { cache } from 'react'
+
 const KEY = process.env.NEXT_PUBLIC_TMDB_KEY
 // api.themoviedb.org is unreachable/reset on some ISPs; api.tmdb.org serves the same API
 const BASE = process.env.TMDB_API_BASE || 'https://api.tmdb.org/3'
@@ -86,23 +88,32 @@ export const searchMovies = async (query: string) => {
   }
 }
 
-// Get movie details with IMDB ID
-export const getMovieDetails = async (tmdbId: string) => {
-  try {
-    const res = await fetchTMDB(
-      `${BASE}/movie/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar`,
-      3600
-    )
-    
-    if (!res?.ok) {
-      return null
-    }
-    
-    return res.json()
-  } catch {
-    return null
-  }
+export const searchCatalog = async (
+  media: 'movie' | 'tv',
+  query: string
+): Promise<{ ok: boolean; results: TMDBMovie[] }> => {
+  const params = new URLSearchParams({ api_key: KEY || '', query, language: 'hi-IN' })
+  const res = await fetchTMDB(`${BASE}/search/${media}?${params.toString()}`)
+  if (!res?.ok) return { ok: false, results: [] }
+  const data = await res.json()
+  return { ok: true, results: (data.results || []) as TMDBMovie[] }
 }
+
+// Get movie details with IMDB ID
+export const getMovieDetails = cache(async (tmdbId: string) => {
+  if (!/^\d{1,9}$/.test(tmdbId)) return { success: false, status_code: 34 }
+
+  const res = await fetchTMDB(
+    `${BASE}/movie/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar`,
+    3600
+  )
+
+  if (!res) throw new Error('TMDB movie request unavailable')
+  if (res.status === 404) return { success: false, status_code: 34 }
+  if (!res.ok) throw new Error(`TMDB movie request failed (${res.status})`)
+
+  return res.json()
+})
 
 // Trending Hindi Web Series
 export const getTrendingWebSeries = async (page: number = 1) => {
@@ -134,16 +145,17 @@ export const getPopularShows = async (page: number = 1) => {
 
 // Movies by genre (Hindi only)
 export const getMoviesByGenre = async (genreId: string) => {
-  try {
-    const res = await fetchTMDB(
-      `${BASE}/discover/movie?api_key=${KEY}&with_genres=${genreId}&with_original_language=hi&sort_by=popularity.desc&page=1`,
-      3600
-    )
-    if (!res?.ok) return { results: [] }
-    return res.json()
-  } catch {
-    return { results: [] }
-  }
+  if (!/^\d{1,5}$/.test(genreId)) throw new Error('Invalid genre identifier')
+
+  const res = await fetchTMDB(
+    `${BASE}/discover/movie?api_key=${KEY}&with_genres=${genreId}&with_original_language=hi&sort_by=popularity.desc&page=1`,
+    3600
+  )
+
+  if (!res) throw new Error('TMDB genre request unavailable')
+  if (!res.ok) throw new Error(`TMDB genre request failed (${res.status})`)
+
+  return res.json()
 }
 
 // Search TV shows
@@ -161,39 +173,37 @@ export const searchWebSeries = async (query: string) => {
 }
 
 // TV show detail + season info
-export const getTVDetails = async (tmdbId: string) => {
-  try {
-    const res = await fetchTMDB(
-      `${BASE}/tv/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar`,
-      3600
-    )
-    
-    if (!res?.ok) {
-      return null
-    }
-    
-    return res.json()
-  } catch {
-    return null
-  }
-}
+export const getTVDetails = cache(async (tmdbId: string) => {
+  if (!/^\d{1,9}$/.test(tmdbId)) return { success: false, status_code: 34 }
+
+  const res = await fetchTMDB(
+    `${BASE}/tv/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar`,
+    3600
+  )
+
+  if (!res) throw new Error('TMDB TV request unavailable')
+  if (res.status === 404) return { success: false, status_code: 34 }
+  if (!res.ok) throw new Error(`TMDB TV request failed (${res.status})`)
+
+  return res.json()
+})
 
 // Episodes in a season
 export const getSeasonEpisodes = async (tmdbId: string, season: number) => {
-  try {
-    const res = await fetchTMDB(
-      `${BASE}/tv/${tmdbId}/season/${season}?api_key=${KEY}`,
-      3600
-    )
-    
-    if (!res?.ok) {
-      return { episodes: [] }
-    }
-    
-    return res.json()
-  } catch {
-    return { episodes: [] }
+  if (!/^\d{1,9}$/.test(tmdbId) || !Number.isInteger(season) || season < 0 || season > 500) {
+    throw new Error('Invalid season request')
   }
+
+  const res = await fetchTMDB(
+    `${BASE}/tv/${tmdbId}/season/${season}?api_key=${KEY}`,
+    3600
+  )
+
+  if (!res) throw new Error('TMDB season request unavailable')
+  if (res.status === 404) return { episodes: [] }
+  if (!res.ok) throw new Error(`TMDB season request failed (${res.status})`)
+
+  return res.json()
 }
 
 // Short-window trending signals (the "today" source)
@@ -288,29 +298,31 @@ export const getTopRatedTV = async (page: number = 1) => {
   }
 }
 
-export const getMovieRecommendations = async (tmdbId: string) => {
+export const getMovieRecommendations = async (tmdbId: string): Promise<TMDBListResult> => {
+  const res = await fetchTMDB(
+    `${BASE}/movie/${tmdbId}/recommendations?api_key=${KEY}&page=1`,
+    3600
+  )
+  if (!res?.ok) return { ok: false, results: [] }
   try {
-    const res = await fetchTMDB(
-      `${BASE}/movie/${tmdbId}/recommendations?api_key=${KEY}&page=1`,
-      3600
-    )
-    if (!res?.ok) return { results: [] }
-    return res.json()
+    const data = await res.json()
+    return { ok: true, results: (data.results || []) as TMDBMovie[] }
   } catch {
-    return { results: [] }
+    return { ok: false, results: [] }
   }
 }
 
-export const getTVRecommendations = async (tmdbId: string) => {
+export const getTVRecommendations = async (tmdbId: string): Promise<TMDBListResult> => {
+  const res = await fetchTMDB(
+    `${BASE}/tv/${tmdbId}/recommendations?api_key=${KEY}&page=1`,
+    3600
+  )
+  if (!res?.ok) return { ok: false, results: [] }
   try {
-    const res = await fetchTMDB(
-      `${BASE}/tv/${tmdbId}/recommendations?api_key=${KEY}&page=1`,
-      3600
-    )
-    if (!res?.ok) return { results: [] }
-    return res.json()
+    const data = await res.json()
+    return { ok: true, results: (data.results || []) as TMDBMovie[] }
   } catch {
-    return { results: [] }
+    return { ok: false, results: [] }
   }
 }
 
@@ -334,6 +346,11 @@ export type DiscoverParams = Partial<
   Record<(typeof DISCOVER_KEYS)[number], string | number>
 >
 
+export type TMDBListResult = {
+  ok: boolean
+  results: TMDBMovie[]
+}
+
 const buildDiscoverUrl = (media: 'movie' | 'tv', params: DiscoverParams) => {
   const search = new URLSearchParams({ api_key: KEY || '' })
   for (const key of DISCOVER_KEYS) {
@@ -345,22 +362,43 @@ const buildDiscoverUrl = (media: 'movie' | 'tv', params: DiscoverParams) => {
   return `${BASE}/discover/${media}?${search.toString()}`
 }
 
+export const getCatalogDiscover = async (
+  media: 'movie' | 'tv',
+  params: DiscoverParams
+): Promise<{ ok: boolean; data: { results?: TMDBMovie[]; total_pages?: number; total_results?: number } }> => {
+  const res = await fetchTMDB(buildDiscoverUrl(media, params), 1800)
+  if (!res?.ok) return { ok: false, data: { results: [] } }
+  return { ok: true, data: await res.json() }
+}
+
+export const getCatalogTrending = async (
+  media: 'movie' | 'tv',
+  page: number
+): Promise<{ ok: boolean; data: { results?: TMDBMovie[]; total_pages?: number; total_results?: number } }> => {
+  const search = new URLSearchParams({ api_key: KEY || '', page: String(page) })
+  const res = await fetchTMDB(`${BASE}/trending/${media}/day?${search.toString()}`, 900)
+  if (!res?.ok) return { ok: false, data: { results: [] } }
+  return { ok: true, data: await res.json() }
+}
+
 export const getDiscoverMovies = async (params: DiscoverParams) => {
+  const res = await fetchTMDB(buildDiscoverUrl('movie', params), 1800)
+  if (!res?.ok) return { ok: false, results: [] } satisfies TMDBListResult
   try {
-    const res = await fetchTMDB(buildDiscoverUrl('movie', params), 1800)
-    if (!res?.ok) return { results: [] }
-    return res.json()
+    const data = await res.json()
+    return { ok: true, results: (data.results || []) as TMDBMovie[] } satisfies TMDBListResult
   } catch {
-    return { results: [] }
+    return { ok: false, results: [] } satisfies TMDBListResult
   }
 }
 
 export const getDiscoverTV = async (params: DiscoverParams) => {
+  const res = await fetchTMDB(buildDiscoverUrl('tv', params), 1800)
+  if (!res?.ok) return { ok: false, results: [] } satisfies TMDBListResult
   try {
-    const res = await fetchTMDB(buildDiscoverUrl('tv', params), 1800)
-    if (!res?.ok) return { results: [] }
-    return res.json()
+    const data = await res.json()
+    return { ok: true, results: (data.results || []) as TMDBMovie[] } satisfies TMDBListResult
   } catch {
-    return { results: [] }
+    return { ok: false, results: [] } satisfies TMDBListResult
   }
 }

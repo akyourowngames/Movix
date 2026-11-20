@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
   const excluded = new Set(rawExclude.map(Number))
 
   if (seeds.length === 0 && genres.length === 0) {
-    return respond({ results: [], reason: 'unavailable' }, 200, 'public, max-age=60, s-maxage=60')
+    return respond({ results: [], reason: 'no_personalization' }, 200, 'public, max-age=60, s-maxage=60')
   }
 
   try {
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
           seed.type === 'movie'
             ? await getMovieRecommendations(seed.id)
             : await getTVRecommendations(seed.id)
-        return (data.results || []) as TMDBMovie[]
+      return data
       })
     )
 
@@ -81,6 +81,17 @@ export async function GET(request: NextRequest) {
       getDiscoverMovies(discoverParams),
       getDiscoverTV(discoverParams),
     ])
+
+    const successfulSources = [
+      ...seedLists,
+      discoverMovies,
+      discoverTV,
+    ].filter((source) => source.ok).length
+    const attemptedSources = seedLists.length + 2
+
+    if (successfulSources === 0) {
+      return respond({ results: [], reason: 'unavailable' }, 503, 'no-store')
+    }
 
     const candidates = new Map<string, { item: ScorableItem; affinity: number }>()
     const seedWeights = [1, 0.85, 0.7, 0.55]
@@ -103,17 +114,18 @@ export async function GET(request: NextRequest) {
     }
 
     seedLists.forEach((list, seedIndex) => {
-      list.forEach((raw, index) => {
+      if (!list.ok) return
+      list.results.forEach((raw, index) => {
         const affinity =
           0.9 * Math.pow(0.94, index) * (seedWeights[seedIndex] ?? 0.5)
         addCandidate(raw, seeds[seedIndex].type, affinity)
       })
     })
 
-    ;((discoverMovies.results || []) as TMDBMovie[]).forEach((raw) =>
+    discoverMovies.results.forEach((raw: TMDBMovie) =>
       addCandidate(raw, 'movie', 0)
     )
-    ;((discoverTV.results || []) as TMDBMovie[]).forEach((raw) =>
+    discoverTV.results.forEach((raw: TMDBMovie) =>
       addCandidate(raw, 'tv', 0)
     )
 
@@ -153,11 +165,17 @@ export async function GET(request: NextRequest) {
       )
     )
 
+    const partial = successfulSources < attemptedSources
     return respond(
-      { results, reason: seeds.length > 0 ? 'because_watched' : 'genres' },
-      200
+      {
+        results,
+        reason: seeds.length > 0 ? 'because_watched' : 'genres',
+        ...(partial ? { degraded: true } : {}),
+      },
+      200,
+      partial ? 'no-store' : undefined
     )
   } catch {
-    return respond({ results: [], reason: 'unavailable' }, 200, 'public, max-age=60, s-maxage=60')
+    return respond({ results: [], reason: 'unavailable' }, 503, 'no-store')
   }
 }

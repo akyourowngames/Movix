@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, Film, LogOut, Search, UserRound } from 'lucide-react'
+import { AlertCircle, Bookmark, Film, LogOut, Search, UserRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/components/AuthProvider'
@@ -13,6 +13,8 @@ export default function Navbar() {
     const [searchFocused, setSearchFocused] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [menuOpen, setMenuOpen] = useState(false)
+    const [signOutError, setSignOutError] = useState(false)
+    const [signingOut, setSigningOut] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     const router = useRouter()
     const { user, profile, loading, signOut } = useAuth()
@@ -57,10 +59,19 @@ export default function Navbar() {
     }
 
     const handleSignOut = async () => {
-        setMenuOpen(false)
-        await signOut()
-        router.push('/')
-        router.refresh()
+        if (signingOut) return
+        setSigningOut(true)
+        setSignOutError(false)
+        try {
+            await signOut()
+            setMenuOpen(false)
+            router.push('/')
+            router.refresh()
+        } catch {
+            setSignOutError(true)
+        } finally {
+            setSigningOut(false)
+        }
     }
 
     const displayName =
@@ -68,22 +79,22 @@ export default function Navbar() {
     const initial = (displayName[0] || 'U').toUpperCase()
 
     return (
-        <nav className={`fixed top-0 w-full z-50 transition-all duration-300 pointer-events-auto ${isScrolled ? 'glassmorphism border-b-white/5 pb-4 pt-4' : 'bg-transparent pt-6 pb-4'
+        <nav aria-label="Primary navigation" className={`fixed top-0 w-full z-50 border-b transition-colors duration-200 pointer-events-auto ${isScrolled ? 'glassmorphism border-b-white/10 py-3' : 'border-transparent bg-gradient-to-b from-black/70 to-transparent py-4'
             }`}>
-            <div className="container mx-auto px-6 max-w-7xl flex items-center justify-between">
+            <div className="page-shell flex min-h-12 items-center justify-between gap-4">
                 {/* Logo and Nav Links */}
-                <div className="flex items-center gap-12">
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <Film className="w-8 h-8 text-primary group-hover:rotate-180 transition-transform duration-700" />
-                        <span className="font-display text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/70">
+                <div className="flex min-w-0 items-center gap-8 xl:gap-12">
+                    <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
+                        <Film className="h-7 w-7 text-primary" />
+                        <span className="font-display text-xl font-bold tracking-tight text-primary sm:text-2xl">
                             CineHindi
                         </span>
-                        <span className="hidden sm:block text-[10px] uppercase tracking-[0.3em] text-white/40 self-end pb-1">
+                        <span className="hidden sm:block text-[10px] uppercase tracking-[0.3em] text-muted-foreground self-end pb-1">
                             सिनेमाघर
                         </span>
                     </Link>
 
-                    <div className="hidden md:flex items-center gap-8 text-sm font-medium">
+                    <div className="hidden md:flex items-center gap-6 text-[13px] font-semibold lg:gap-8">
                         <Link href="/" className="text-white/70 hover:text-white transition-colors relative group">
                             Home
                             <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
@@ -104,17 +115,17 @@ export default function Navbar() {
                 </div>
 
                 {/* Right Section */}
-                <div className="flex items-center gap-4 sm:gap-6">
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-5">
                     <div className="relative hidden sm:flex items-center">
                         <motion.div
                             initial={false}
-                            animate={{ width: searchFocused ? 240 : 36 }}
-                            className="flex items-center bg-white/5 border border-white/10 rounded-full overflow-hidden"
+                            animate={{ width: searchFocused ? 260 : 44 }}
+                            className="flex h-11 items-center overflow-hidden rounded-full border border-white/10 bg-white/[0.04]"
                         >
                             <button
                                 type="button"
                                 onClick={handleSearchIconClick}
-                                className="ml-3 shrink-0 cursor-pointer p-0 bg-transparent border-none"
+                                className="ml-1 inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 aria-label="Search"
                             >
                                 <Search className="w-4 h-4 text-white/50 hover:text-white transition-colors" />
@@ -125,7 +136,7 @@ export default function Navbar() {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder="Search movies..."
-                                    className="w-full bg-transparent border-none outline-none text-sm px-3 py-2 text-white placeholder:text-white/40"
+                                    className="w-full bg-transparent border-none px-3 py-2 text-sm text-white outline-none placeholder:text-muted-foreground"
                                     onFocus={() => setSearchFocused(true)}
                                     onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                                 />
@@ -133,18 +144,17 @@ export default function Navbar() {
                         </motion.div>
                     </div>
 
-                    <button className="relative" aria-label="Notifications">
-                        <Bell className="w-5 h-5 text-white/70 hover:text-white transition-colors" />
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
-                    </button>
+                    <Link href="/profile" className="relative flex min-h-11 min-w-11 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="My list">
+                        <Bookmark className="h-5 w-5" />
+                    </Link>
 
                     {loading ? (
-                        <div className="w-9 h-9 rounded-full bg-white/5 animate-pulse" />
+                        <div className="h-9 w-9 rounded-full skeleton-surface" aria-label="Loading account" />
                     ) : user ? (
                         <div className="relative" ref={menuRef}>
                             <button
                                 onClick={() => setMenuOpen((open) => !open)}
-                                className="cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                                className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                                 aria-label="Account menu"
                                 aria-expanded={menuOpen}
                             >
@@ -165,7 +175,7 @@ export default function Navbar() {
                                     >
                                         <div className="border-b border-white/5 px-3 py-2.5">
                                             <p className="truncate text-sm font-semibold">{displayName}</p>
-                                            <p className="truncate text-xs text-white/40">{user.email}</p>
+                                            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                                         </div>
                                         <Link
                                             href="/profile"
@@ -176,12 +186,20 @@ export default function Navbar() {
                                             My profile
                                         </Link>
                                         <button
+                                            type="button"
                                             onClick={handleSignOut}
-                                            className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+                                            disabled={signingOut}
+                                            className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60 motion-reduce:transition-none"
                                         >
                                             <LogOut className="h-4 w-4" />
-                                            Sign out
+                                            {signingOut ? 'Signing out…' : 'Sign out'}
                                         </button>
+                                        {signOutError && (
+                                            <p role="alert" className="flex items-start gap-2 px-3 py-2 text-xs text-amber-200">
+                                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                                                Could not sign out. Please try again.
+                                            </p>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -189,7 +207,8 @@ export default function Navbar() {
                     ) : (
                         <Link
                             href="/login"
-                            className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/80 transition-colors hover:border-primary/50 hover:bg-white/10 hover:text-white"
+                            aria-label="Sign in"
+                            className="flex min-h-11 items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                             <UserRound className="h-4 w-4" />
                             <span className="hidden sm:inline">Sign in</span>

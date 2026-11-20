@@ -6,6 +6,7 @@ import { Search, Star, Filter, X, Film, Tv, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { getImageUrl, type CatalogItem } from '@/lib/catalog'
+import { MediaSkeleton } from '@/components/ui/MediaSkeleton'
 
 const GENRES = [
   { id: 28, name: 'Action', hindi: 'एक्शन' },
@@ -21,15 +22,7 @@ const cache = new Map<string, { items: CatalogItem[]; ts: number }>()
 
 function SearchSkeleton() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="animate-pulse">
-          <div className="aspect-[2/3] rounded-xl bg-white/5 mb-3" />
-          <div className="h-4 bg-white/5 rounded w-3/4 mb-2" />
-          <div className="h-3 bg-white/5 rounded w-1/3" />
-        </div>
-      ))}
-    </div>
+    <MediaSkeleton count={8} label="Loading search results" className="lg:grid-cols-4 xl:grid-cols-5" />
   )
 }
 
@@ -175,6 +168,7 @@ function SearchPageContent() {
     return filtered.filter((item) => {
       if (!item.release_date) return true
       const year = new Date(item.release_date).getFullYear()
+      if (!Number.isFinite(year)) return true
       return year >= minYear && year <= maxYear
     })
   }, [items, selectedGenres, minRating, yearRange])
@@ -224,21 +218,21 @@ function SearchPageContent() {
         <input id="min-rating" type="range" min="0" max="10" step="0.5" value={minRating}
           onChange={(event) => setMinRating(Number(event.target.value))}
           className="min-h-11 w-full accent-[hsl(var(--primary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-        <div className="flex justify-between text-xs text-white/50"><span>Any rating</span><span>10</span></div>
+        <div className="flex justify-between text-xs text-muted-foreground"><span>Any rating</span><span>10</span></div>
       </div>
 
       <fieldset>
         <legend className="mb-3 font-medium">Release year</legend>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <label className="min-w-0">
-            <span className="mb-1 block text-xs text-white/50">From</span>
+            <span className="mb-1 block text-xs text-muted-foreground">From</span>
             <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label="From year"
               value={yearRange[0]} onChange={(event) => setYearRange([Number(event.target.value), yearRange[1]])}
               className="h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40" />
           </label>
-          <span className="mt-5 text-white/60">to</span>
+          <span className="mt-5 text-muted-foreground">to</span>
           <label className="min-w-0">
-            <span className="mb-1 block text-xs text-white/50">To</span>
+            <span className="mb-1 block text-xs text-muted-foreground">To</span>
             <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label="To year"
               value={yearRange[1]} onChange={(event) => setYearRange([yearRange[0], Number(event.target.value)])}
               className="h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40" />
@@ -250,14 +244,14 @@ function SearchPageContent() {
 
   return (
     <main className="min-h-screen bg-background pt-24 pb-32">
-      <div className="container mx-auto max-w-screen-2xl px-4 sm:px-6">
+      <div className="page-shell max-w-screen-2xl">
         {/* Search Bar */}
         <div className="mx-auto mb-8 max-w-3xl sm:mb-12">
           <h1 className="mb-5 text-center font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Discover your next favourite
           </h1>
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text"
               aria-label="Search movies and TV shows"
@@ -265,7 +259,7 @@ function SearchPageContent() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search movies & shows..."
-              className="min-h-14 w-full rounded-2xl border border-white/10 bg-white/5 py-4 pl-12 pr-4 text-white placeholder:text-white/40 outline-none backdrop-blur-xl transition-colors focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="min-h-14 w-full border border-white/15 bg-card py-4 pl-12 pr-4 text-white placeholder:text-muted-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
             />
           </div>
         </div>
@@ -273,7 +267,7 @@ function SearchPageContent() {
         <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)] lg:gap-8">
           {/* Desktop filter rail */}
           <aside className="hidden lg:block">
-            <div className="sticky top-24 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+            <div className="sticky top-24 border border-white/10 bg-card p-5">
               <h2 className="mb-6 font-display text-xl font-bold">Filters</h2>
               {filterControls}
 
@@ -283,7 +277,7 @@ function SearchPageContent() {
           {/* Results Grid */}
           <div className="min-w-0">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-white/55" role="status" aria-live="polite">
+            <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
                 {loading ? 'Updating results…' : query.trim().length >= 2 ? `${results.length} results` : 'Search to discover something to watch'}
               </p>
               <button
@@ -309,11 +303,12 @@ function SearchPageContent() {
             </div>
 
             {error ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-4 text-white/60">
+              <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
                 <p>Search failed. Please retry.</p>
                 <button
+                  type="button"
                   onClick={() => setReloadKey((k) => k + 1)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all"
+                  className="flex min-h-11 items-center gap-2 rounded-lg bg-white/10 px-4 py-2 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Retry
@@ -324,7 +319,7 @@ function SearchPageContent() {
             ) : results.length > 0 ? (
               <div
                 className={`grid min-w-0 grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 xl:grid-cols-4 transition-opacity duration-300 motion-reduce:transition-none ${
-                  loading ? 'opacity-50' : 'opacity-100'
+                  loading ? 'opacity-75' : 'opacity-100'
                 }`}
               >
                 {results.map((item) => {
@@ -333,38 +328,47 @@ function SearchPageContent() {
 
                   return (
                     <Link key={`${item.media_type}-${item.id}`} href={href} className="group min-w-0 cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                      <div className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-white/5">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={getImageUrl(item.poster_path, 'w342')}
-                          alt={item.title}
-                          loading="lazy"
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        />
+                      <div className="relative mb-3 aspect-[2/3] overflow-hidden rounded-xl bg-white/5">
+                        {item.poster_path ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={getImageUrl(item.poster_path, 'w342')}
+                            alt={`${item.title} poster`}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110 motion-reduce:transition-none"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-muted-foreground">
+                            {isTV ? <Tv className="h-8 w-8" aria-hidden="true" /> : <Film className="h-8 w-8" aria-hidden="true" />}
+                            <span className="sr-only">Poster unavailable</span>
+                          </div>
+                        )}
                         <div className="absolute top-2 left-2 bg-black/80 backdrop-blur px-2 py-1 rounded-lg">
                           {isTV ? <Tv className="w-3 h-3" /> : <Film className="w-3 h-3" />}
                         </div>
                         <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/80 backdrop-blur px-2 py-1 rounded-lg">
                           <Star className="w-3 h-3 fill-primary text-primary" />
-                          <span className="text-xs font-bold">{item.vote_average.toFixed(1)}</span>
+                          <span className="text-xs font-bold">{Number.isFinite(item.vote_average) ? item.vote_average.toFixed(1) : '—'}</span>
                         </div>
                       </div>
                       <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
                         {item.title}
                       </h3>
-                      <p className="text-xs text-white/60 mt-1">
-                        {item.release_date ? new Date(item.release_date).getFullYear() : 'N/A'}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {item.release_date && Number.isFinite(new Date(item.release_date).getTime())
+                          ? new Date(item.release_date).getFullYear()
+                          : 'Release date unavailable'}
                       </p>
                     </Link>
                   )
                 })}
               </div>
             ) : query.trim().length >= 2 ? (
-              <div className="text-center py-20 text-white/60" role="status">
+              <div className="text-center py-20 text-muted-foreground" role="status">
                 No movies found. Try different keywords or filters.
               </div>
             ) : (
-              <div className="text-center py-20 text-white/60" role="status">
+              <div className="text-center py-20 text-muted-foreground" role="status">
                 Start typing to search movies...
               </div>
             )}
@@ -430,7 +434,7 @@ export default function SearchPage() {
   return (
     <Suspense fallback={
       <main className="min-h-screen bg-background pt-24 pb-32">
-        <div className="container mx-auto px-6">
+        <div className="page-shell">
           <SearchSkeleton />
         </div>
       </main>
