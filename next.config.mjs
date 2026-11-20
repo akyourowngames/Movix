@@ -3,6 +3,9 @@ const nextConfig = {
   // Allows isolated verification builds while a dev server owns .next
   distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {
+    // Vercel image optimization is quota-limited; load TMDB-sized images directly.
+    loader: 'custom',
+    loaderFile: './src/lib/imageLoader.ts',
     remotePatterns: [
       {
         protocol: 'https',

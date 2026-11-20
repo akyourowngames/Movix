@@ -54,6 +54,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
             src={getImageUrl(show.backdrop_path, 'w1280')}
             alt={show.name}
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />
@@ -70,6 +71,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
                   src={getImageUrl(show.poster_path)}
                   alt={`${show.name} poster`}
                   fill
+                  sizes="(max-width: 640px) 192px, (max-width: 768px) 224px, (max-width: 1024px) 280px, 320px"
                   className="rounded-xl shadow-2xl object-cover"
                   priority
                 />
@@ -136,6 +138,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
                             src={getImageUrl(person.profile_path, 'w500')}
                             alt={person.name}
                             fill
+                            sizes="80px"
                             className="object-cover"
                           />
                         ) : (
@@ -177,6 +180,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
                           src={getImageUrl(s.poster_path)}
                           alt={`${s.name} poster`}
                           fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
                           className="object-cover transition-transform duration-300 group-hover:scale-110"
                         />
                       ) : (
