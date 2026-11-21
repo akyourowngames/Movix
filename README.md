@@ -8,6 +8,8 @@
 
 > **CineHindi** is a movie and TV series discovery app — browse Bollywood, South Indian, Hollywood, K-dramas, anime and Indian web series, build a watchlist, get personal recommendations, and resume where you left off. Guest-first: no signup needed.
 
+Built by **[Krish Verma (akyourowngames)](https://github.com/akyourowngames)**.
+
 **Live site: [cine-hindi.vercel.app](https://cine-hindi.vercel.app)**
 
 _This repository is named Movix; the app itself is called CineHindi._
@@ -144,6 +146,21 @@ public/screenshots/       README assets
 - [ ] Tests for auth, sync merge and resume selection
 - [ ] Player keyboard shortcuts and subtitle preferences
 
+## SEO & launch
+
+Technical SEO is built in: canonical URLs, per-title and per-category metadata, Open Graph/Twitter images, JSON-LD (`WebSite`, `Person`, `Movie`, `TVSeries`, `BreadcrumbList`), sitemap, robots rules, and server-rendered category pages.
+
+The launch checklist, keyword targets, ready-to-post launch copy and outreach templates live in [docs/SEO_OUTREACH.md](./docs/SEO_OUTREACH.md).
+
 ## Author
 
-Built by [Krish](https://github.com/akyourowngames). If this project helped you or sparked an idea, consider starring the repo.
+**Krish Verma** — [@akyourowngames](https://github.com/akyourowngames)
+
+Full-stack developer. Built CineHindi end to end: product design, Next.js architecture, Supabase auth and sync, the recommendation engine and the cinematic UI.
+
+- GitHub: [github.com/akyourowngames](https://github.com/akyourowngames)
+- Source: [github.com/akyourowngames/Movix](https://github.com/akyourowngames/Movix)
+- Live: [cine-hindi.vercel.app](https://cine-hindi.vercel.app)
+- About the project: [cine-hindi.vercel.app/about](https://cine-hindi.vercel.app/about)
+
+If this project helped you or sparked an idea, consider starring the repo.

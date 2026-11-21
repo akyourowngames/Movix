@@ -297,5 +297,25 @@ export const categoryGroups: { id: CategoryGroup; label: string }[] = [
   { id: 'genres', label: 'Genres' },
 ]
 
+export const parseCategoryMedia = (
+  value: string | null | undefined,
+  fallback: CategoryMedia = 'all'
+): CategoryMedia =>
+  value === 'movie' || value === 'tv' || value === 'all' ? value : fallback
+
+export const browsePathFor = (
+  type: CategoryMedia,
+  categoryId: string,
+  page = 1
+) => {
+  if (type === 'all' && categoryId === 'trending' && page === 1) return '/browse'
+
+  const params = new URLSearchParams()
+  params.set('type', type)
+  params.set('category', categoryId)
+  if (page > 1) params.set('page', String(page))
+  return `/browse?${params.toString()}`
+}
+
 export const categoryForMedia = (id: string | null | undefined) =>
   (id && CATEGORY_MAP[id]) || CATEGORY_MAP[DEFAULT_CATEGORY]

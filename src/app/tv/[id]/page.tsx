@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getTVDetails } from '@/lib/tmdb'
 import { getImageUrl } from '@/lib/catalog'
 import { Star, Calendar, Users, Tv } from 'lucide-react'
@@ -5,6 +6,63 @@ import Link from 'next/link'
 import Image from 'next/image'
 import SeasonSelector from './SeasonSelector'
 import TrackView from '@/components/TrackView'
+import { SITE_NAME, SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/site'
+
+const trimDescription = (text: string | undefined, fallback: string) => {
+  const clean = (text || fallback).replace(/\s+/g, ' ').trim()
+  if (clean.length <= 158) return clean
+  return `${clean.slice(0, 155).replace(/\s+\S*$/, '')}…`
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string }
+}): Promise<Metadata> {
+  const show = await getTVDetails(params.id)
+
+  if (!show || show.success === false || show.status_code === 34) {
+    return {
+      title: 'Title not found',
+      robots: { index: false, follow: false },
+    }
+  }
+
+  const year =
+    typeof show.first_air_date === 'string' ? show.first_air_date.slice(0, 4) : ''
+  const title = `${show.name}${year ? ` (${year})` : ''} — Seasons, Cast & Streaming`
+  const description = trimDescription(
+    show.overview,
+    `Episode guide, cast, ratings and streaming options for ${show.name} on ${SITE_NAME}.`
+  )
+  const image = show.backdrop_path
+    ? getImageUrl(show.backdrop_path, 'w1280')
+    : show.poster_path
+      ? getImageUrl(show.poster_path, 'w500')
+      : undefined
+  const genres = (show.genres || []).map((genre: { name: string }) => genre.name)
+
+  return {
+    title,
+    description,
+    keywords: [show.name, ...genres, 'web series', 'watch online', SITE_NAME].filter(Boolean),
+    alternates: { canonical: `/tv/${params.id}` },
+    openGraph: {
+      type: 'video.tv_show',
+      title,
+      description,
+      url: `/tv/${params.id}`,
+      siteName: SITE_NAME,
+      images: image ? [{ url: image, alt: `${show.name} artwork` }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: image ? [image] : undefined,
+    },
+  }
+}
 
 export default async function TVPage({ params }: { params: { id: string } }) {
     const show = await getTVDetails(params.id)
@@ -36,8 +94,71 @@ export default async function TVPage({ params }: { params: { id: string } }) {
       ? firstAirDate.getFullYear()
       : null
 
+    const genres = show.genres || []
+    const poster = show.poster_path ? getImageUrl(show.poster_path, 'w500') : undefined
+    const backdrop = show.backdrop_path ? getImageUrl(show.backdrop_path, 'w1280') : undefined
+
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'TVSeries',
+          name: show.name,
+          alternateName:
+            show.original_name && show.original_name !== show.name
+              ? show.original_name
+              : undefined,
+          description: show.overview || undefined,
+          image: [backdrop, poster].filter((value): value is string => Boolean(value)),
+          datePublished: show.first_air_date || undefined,
+          genre: genres.map((genre: Genre) => genre.name),
+          inLanguage: show.original_language || undefined,
+          numberOfSeasons: show.number_of_seasons || undefined,
+          numberOfEpisodes: show.number_of_episodes || undefined,
+          url: absoluteUrl(`/tv/${show.id}`),
+          sameAs: [`https://www.themoviedb.org/tv/${show.id}`],
+          actor: cast.map((person: CastMember) => ({
+            '@type': 'Person',
+            name: person.name,
+          })),
+          aggregateRating:
+            show.vote_count > 0
+              ? {
+                  '@type': 'AggregateRating',
+                  ratingValue: Number(show.vote_average.toFixed(1)),
+                  ratingCount: show.vote_count,
+                  bestRating: 10,
+                  worstRating: 0,
+                }
+              : undefined,
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Web Series',
+              item: `${SITE_URL}/browse?type=tv`,
+            },
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: show.name,
+              item: absoluteUrl(`/tv/${show.id}`),
+            },
+          ],
+        },
+      ],
+    }
+
     return (
     <main className="min-h-screen bg-background pt-20 pb-32">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
       <TrackView
         id={show.id}
         type="tv"

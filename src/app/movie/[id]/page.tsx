@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { getMovieDetails } from '@/lib/tmdb'
 import { getImageUrl } from '@/lib/catalog'
 import VideoPlayer from '@/components/VideoPlayer'
@@ -5,6 +6,62 @@ import TrackView from '@/components/TrackView'
 import { Star, Clock, Calendar, Users } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { SITE_NAME, SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/site'
+
+const trimDescription = (text: string | undefined, fallback: string) => {
+  const clean = (text || fallback).replace(/\s+/g, ' ').trim()
+  if (clean.length <= 158) return clean
+  return `${clean.slice(0, 155).replace(/\s+\S*$/, '')}…`
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string }
+}): Promise<Metadata> {
+  const movie = await getMovieDetails(params.id)
+
+  if (!movie || movie.success === false || movie.status_code === 34) {
+    return {
+      title: 'Title not found',
+      robots: { index: false, follow: false },
+    }
+  }
+
+  const year = typeof movie.release_date === 'string' ? movie.release_date.slice(0, 4) : ''
+  const title = `${movie.title}${year ? ` (${year})` : ''} — Synopsis, Cast & Streaming`
+  const description = trimDescription(
+    movie.overview,
+    `Overview, cast, ratings and streaming options for ${movie.title} on ${SITE_NAME}.`
+  )
+  const image = movie.backdrop_path
+    ? getImageUrl(movie.backdrop_path, 'w1280')
+    : movie.poster_path
+      ? getImageUrl(movie.poster_path, 'w500')
+      : undefined
+  const genres = (movie.genres || []).map((genre: { name: string }) => genre.name)
+
+  return {
+    title,
+    description,
+    keywords: [movie.title, ...genres, 'watch online', SITE_NAME].filter(Boolean),
+    alternates: { canonical: `/movie/${params.id}` },
+    openGraph: {
+      type: 'video.movie',
+      title,
+      description,
+      url: `/movie/${params.id}`,
+      siteName: SITE_NAME,
+      images: image ? [{ url: image, alt: `${movie.title} artwork` }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: image ? [image] : undefined,
+    },
+  }
+}
 
 export default async function MoviePage({ params }: { params: { id: string } }) {
   const movie = await getMovieDetails(params.id)
@@ -36,8 +93,75 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
       ? releaseDate.getFullYear()
       : null
 
+    const genres = movie.genres || []
+    const poster = movie.poster_path ? getImageUrl(movie.poster_path, 'w500') : undefined
+    const backdrop = movie.backdrop_path ? getImageUrl(movie.backdrop_path, 'w1280') : undefined
+    const directors = (movie.credits?.crew || [])
+      .filter((person: { job?: string }) => person.job === 'Director')
+      .slice(0, 2)
+      .map((person: { name: string }) => ({ '@type': 'Person', name: person.name }))
+
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Movie',
+          name: movie.title,
+          alternateName:
+            movie.original_title && movie.original_title !== movie.title
+              ? movie.original_title
+              : undefined,
+          description: movie.overview || undefined,
+          image: [backdrop, poster].filter((value): value is string => Boolean(value)),
+          datePublished: movie.release_date || undefined,
+          genre: genres.map((genre: Genre) => genre.name),
+          inLanguage: movie.original_language || undefined,
+          url: absoluteUrl(`/movie/${movie.id}`),
+          duration: movie.runtime ? `PT${movie.runtime}M` : undefined,
+          sameAs: [`https://www.themoviedb.org/movie/${movie.id}`],
+          director: directors.length > 0 ? directors : undefined,
+          actor: cast.map((person: CastMember) => ({
+            '@type': 'Person',
+            name: person.name,
+          })),
+          aggregateRating:
+            movie.vote_count > 0
+              ? {
+                  '@type': 'AggregateRating',
+                  ratingValue: Number(movie.vote_average.toFixed(1)),
+                  ratingCount: movie.vote_count,
+                  bestRating: 10,
+                  worstRating: 0,
+                }
+              : undefined,
+        },
+        {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Movies',
+              item: `${SITE_URL}/browse?type=movie`,
+            },
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: movie.title,
+              item: absoluteUrl(`/movie/${movie.id}`),
+            },
+          ],
+        },
+      ],
+    }
+
   return (
     <main className="min-h-screen bg-background pt-20 pb-32">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
       <TrackView
         id={movie.id}
         type="movie"

@@ -2,6 +2,27 @@
   "name": "cine-hindi",
   "version": "0.1.0",
   "private": true,
+  "description": "CineHindi — a cinematic movie and web-series discovery app with synced watchlists, resume points and personal recommendations.",
+  "author": "Krish Verma (akyourowngames) <https://github.com/akyourowngames>",
+  "homepage": "https://cine-hindi.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akyourowngames/Movix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/akyourowngames/Movix/issues"
+  },
+  "keywords": [
+    "nextjs",
+    "react",
+    "typescript",
+    "supabase",
+    "tmdb",
+    "movies",
+    "web-series",
+    "streaming",
+    "cinehindi"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

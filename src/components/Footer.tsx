@@ -24,8 +24,9 @@ export default function Footer() {
             <h2 className="mb-4 text-sm font-semibold text-white">Quick Links</h2>
             <ul className="space-y-2 text-sm">
               <li><Link href="/" className="text-muted-foreground hover:text-primary transition-colors">Home</Link></li>
-              <li><Link href="/browse" className="text-muted-foreground hover:text-primary transition-colors">Browse Movies</Link></li>
+              <li><Link href="/browse" className="text-muted-foreground hover:text-primary transition-colors">Browse Titles</Link></li>
               <li><Link href="/search" className="text-muted-foreground hover:text-primary transition-colors">Search</Link></li>
+              <li><Link href="/about" className="text-muted-foreground hover:text-primary transition-colors">About</Link></li>
               <li><Link href="/profile" className="text-muted-foreground hover:text-primary transition-colors">My Profile</Link></li>
             </ul>
           </div>
@@ -63,7 +64,18 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="flex flex-col items-start justify-between gap-3 border-t border-white/10 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center">
-          <p>© 2024 CineHindi. All rights reserved.</p>
+          <p>
+            © {new Date().getFullYear()} CineHindi. Built by{' '}
+            <a
+              href="https://github.com/akyourowngames"
+              target="_blank"
+              rel="me noopener noreferrer"
+              className="text-white/70 underline-offset-4 transition-colors hover:text-primary hover:underline"
+            >
+              Krish Verma (akyourowngames)
+            </a>
+            .
+          </p>
           <p>Powered by TMDB API</p>
         </div>
       </div>

@@ -1,0 +1,11 @@
+/* TEAM */
+Developer: Krish Verma (akyourowngames)
+GitHub: https://github.com/akyourowngames
+Location: India
+Site: https://cine-hindi.vercel.app
+Built: CineHindi — cinematic movie and web-series discovery
+
+/* SITE */
+Standards: HTML5, CSS3, JavaScript, TypeScript
+Components: Next.js, React, Tailwind CSS, Framer Motion, Supabase, TMDB
+Sitemap: https://cine-hindi.vercel.app/sitemap.xml

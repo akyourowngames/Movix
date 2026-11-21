@@ -1,8 +1,10 @@
+import type { Metadata } from 'next'
 import { getImageUrl } from '@/lib/catalog'
 import { getMoviesByGenre } from '@/lib/tmdb'
 import Link from 'next/link'
 import { Film, Star } from 'lucide-react'
 import { notFound } from 'next/navigation'
+import { SITE_NAME, absoluteUrl, serializeJsonLd } from '@/lib/site'
 
 const GENRES: Record<string, { name: string; hindi: string }> = {
   '28': { name: 'Action', hindi: 'एक्शन' },
@@ -11,6 +13,36 @@ const GENRES: Record<string, { name: string; hindi: string }> = {
   '53': { name: 'Thriller', hindi: 'थ्रिलर' },
   '10749': { name: 'Romance', hindi: 'रोमांस' },
   '27': { name: 'Horror', hindi: 'हॉरर' },
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string }
+}): Promise<Metadata> {
+  const genre = GENRES[params.id]
+
+  if (!genre) {
+    return { title: 'Genre not found', robots: { index: false, follow: false } }
+  }
+
+  const title = `${genre.name} Movies — Watch Online`
+  const description = `Browse the best ${genre.name.toLowerCase()} movies on ${SITE_NAME}. Ratings, posters and quick access to details and streaming options.`
+
+  return {
+    title,
+    description,
+    keywords: [`${genre.name} movies`, 'watch online', SITE_NAME],
+    alternates: { canonical: `/genre/${params.id}` },
+    openGraph: {
+      title,
+      description,
+      url: `/genre/${params.id}`,
+      siteName: SITE_NAME,
+      type: 'website',
+    },
+    twitter: { card: 'summary_large_image', title, description },
+  }
 }
 
 export default async function GenrePage({ params }: { params: { id: string } }) {
@@ -31,8 +63,46 @@ export default async function GenrePage({ params }: { params: { id: string } }) 
     release_date: string | null
   }
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        name: `${genre.name} Movies`,
+        url: absoluteUrl(`/genre/${params.id}`),
+        description: `Browse ${genre.name} movies on ${SITE_NAME}.`,
+        mainEntity: {
+          '@type': 'ItemList',
+          numberOfItems: movies.length,
+          itemListElement: movies.slice(0, 20).map((movie: MovieItem, index: number) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            name: movie.title,
+            url: absoluteUrl(`/movie/${movie.id}`),
+          })),
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: absoluteUrl('/') },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: `${genre.name} movies`,
+            item: absoluteUrl(`/genre/${params.id}`),
+          },
+        ],
+      },
+    ],
+  }
+
   return (
     <main className="min-h-screen bg-background pt-24 pb-32">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
       <div className="container mx-auto px-4 md:px-6">
         <div className="mb-12">
           <h1 className="font-display text-5xl font-bold mb-2">{genre.name}</h1>

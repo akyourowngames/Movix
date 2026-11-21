@@ -1,8 +1,31 @@
 import { Fragment } from 'react'
+import type { Metadata } from 'next'
 import HeroSection from '@/components/HeroSection'
 import MovieCarousel from '@/components/MovieCarousel'
 import PersonalRows from '@/components/PersonalRows'
 import { getHomeFeed } from '@/lib/homeFeed'
+import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/site'
+
+const homeTitle = `${SITE_NAME} — Watch Bollywood, Hollywood & Web Series`
+
+export const metadata: Metadata = {
+  title: { absolute: homeTitle },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: homeTitle,
+    description: SITE_DESCRIPTION,
+    url: '/',
+    siteName: SITE_NAME,
+    type: 'website',
+    locale: 'en_IN',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: homeTitle,
+    description: SITE_DESCRIPTION,
+  },
+}
 
 export const revalidate = 900
 
