@@ -11,9 +11,15 @@ interface StreamServer {
   banner?: string
   requiresImdb?: boolean
   mobileFriendly?: boolean
+  languages: ('hi' | 'en')[]
   movie: (tmdbId: string, imdbId?: string) => string
   tv: (tmdbId: string, season: number, episode: number, imdbId?: string) => string
 }
+
+const CINEZO_QUERY =
+  'autoplay=false&poster=true&chromecast=true&servericon=true&setting=true&pip=true&font=Roboto&fontcolor=6f63ff&fontsize=20&opacity=0.5&primarycolor=e8b86d&secondarycolor=0a0a12&iconcolor=ffffff'
+
+const cinezo = (path: string) => `https://player.cinezo.live/embed/${path}?${CINEZO_QUERY}`
 
 const SERVERS: StreamServer[] = [
   {
@@ -21,6 +27,7 @@ const SERVERS: StreamServer[] = [
     movie: (id: string) => `https://vidsrc.to/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
     note: 'Hindi + English • Hollywood & Bollywood',
+    languages: ['hi', 'en'],
   },
   {
     name: 'ModiPlay',
@@ -29,6 +36,7 @@ const SERVERS: StreamServer[] = [
       `https://rozgarlelo.modiplay.xyz/embed/tmdb/tv?id=${id}&s=${s}&e=${e}`,
     note: 'Hindi • Movies & web series',
     mobileFriendly: true,
+    languages: ['hi'],
   },
   {
     name: 'AutoEmbed',
@@ -36,6 +44,7 @@ const SERVERS: StreamServer[] = [
     tv: (id: string, s: number, e: number) => `https://nxsha.space/embed/tv/${id}/${s}/${e}?lang=hindi&autoplay=true`,
     note: 'Hindi • Hollywood & Bollywood',
     banner: '🇮🇳 Hindi audio — Hollywood & Bollywood',
+    languages: ['hi'],
   },
   {
     name: 'Hindi Exclusive',
@@ -44,12 +53,21 @@ const SERVERS: StreamServer[] = [
     note: 'Hindi only • Exclusive',
     requiresImdb: true,
     banner: '🇮🇳 Hindi exclusive — Hindi dubbed movies & shows',
+    languages: ['hi'],
+  },
+  {
+    name: 'Cinezo',
+    movie: (id: string) => cinezo(`movie/${id}`),
+    tv: (id: string, s: number, e: number) => cinezo(`tv/${id}/${s}/${e}`),
+    note: 'English • Movies & web series',
+    languages: ['en'],
   },
   {
     name: 'CineSrc',
     movie: (id: string) => `https://cinesrc.st/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}`,
     note: 'English only',
+    languages: ['en'],
   },
 ]
 
@@ -188,6 +206,28 @@ export default function VideoPlayer({
             >
               <span className="flex items-center gap-1.5">
                 {s.name}
+                <span
+                  className="flex items-center gap-0.5"
+                  aria-label={`Languages: ${s.languages
+                    .map((lang) => (lang === 'hi' ? 'Hindi' : 'English'))
+                    .join(' and ')}`}
+                >
+                  {s.languages.map((lang) => (
+                    <span
+                      key={lang}
+                      title={lang === 'hi' ? 'Hindi audio' : 'English audio'}
+                      className={`rounded px-1 py-0.5 text-[9px] font-bold ${
+                        serverIndex === i
+                          ? 'bg-black/15 text-black/70'
+                          : lang === 'hi'
+                            ? 'bg-orange-400/15 text-orange-300'
+                            : 'bg-sky-400/15 text-sky-300'
+                      }`}
+                    >
+                      {lang === 'hi' ? 'HI' : 'EN'}
+                    </span>
+                  ))}
+                </span>
                 {isMobile && s.name === 'VidSrc' && (
                   <span
                     className={`rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
@@ -383,6 +423,12 @@ export default function VideoPlayer({
           <p>
             Provider: <span className="text-primary font-medium">{currentServer.name}</span>
             {' '}— {currentServer.note}
+          </p>
+          <p>
+            Languages:{' '}
+            {currentServer.languages
+              .map((lang) => (lang === 'hi' ? 'Hindi' : 'English'))
+              .join(' + ')}
           </p>
           <p>
             Provider availability can vary. A loaded provider page does not confirm that playback works.
