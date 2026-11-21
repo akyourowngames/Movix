@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import ChromeGate from '@/components/ChromeGate'
 import { AuthProvider } from '@/components/AuthProvider'
+import { LanguageProvider } from '@/components/LanguageProvider'
 import {
   AUTHOR,
   SITE_DESCRIPTION,
@@ -89,6 +90,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/* Apply the stored language before paint to avoid a bilingual flash. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var l=localStorage.getItem('cinehindi:lang');if(l!=='hi'&&l!=='en')l='en';document.documentElement.dataset.lang=l;document.documentElement.lang=l==='hi'?'hi':'en';}catch(e){document.documentElement.dataset.lang='en';}})();",
+          }}
+        />
         <link rel="preconnect" href="https://image.tmdb.org" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://image.tmdb.org" />
         {/* Static, locally generated JSON-LD; serializeJsonLd escapes markup. */}
@@ -98,15 +106,17 @@ export default function RootLayout({
         />
       </head>
       <body className={`${playfair.variable} ${dmSans.variable} font-sans antialiased bg-background text-foreground min-h-screen selection:bg-primary/30 selection:text-white`}>
-        <AuthProvider>
-          <ChromeGate>
-            <Navbar />
-          </ChromeGate>
-          {children}
-          <ChromeGate>
-            <Footer />
-          </ChromeGate>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <ChromeGate>
+              <Navbar />
+            </ChromeGate>
+            {children}
+            <ChromeGate>
+              <Footer />
+            </ChromeGate>
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   )

@@ -7,6 +7,8 @@ import { AlertCircle, Bookmark, Film, LogOut, Search, Settings2, UserRound } fro
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/components/AuthProvider'
+import { useLanguage } from '@/components/LanguageProvider'
+import LanguageToggle from '@/components/LanguageToggle'
 
 export default function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false)
@@ -18,6 +20,8 @@ export default function Navbar() {
     const menuRef = useRef<HTMLDivElement>(null)
     const router = useRouter()
     const { user, profile, loading, signOut } = useAuth()
+    const { language } = useLanguage()
+    const l = (en: string, hi: string) => (language === 'hi' ? hi : en)
 
     useEffect(() => {
         const handleScroll = () => {
@@ -79,43 +83,43 @@ export default function Navbar() {
     const initial = (displayName[0] || 'U').toUpperCase()
 
     return (
-        <nav aria-label="Primary navigation" className={`fixed top-0 w-full z-50 border-b transition-colors duration-200 pointer-events-auto ${isScrolled ? 'glassmorphism border-b-white/10 py-3' : 'border-transparent bg-gradient-to-b from-black/70 to-transparent py-4'
+        <nav aria-label={l('Primary navigation', 'मुख्य नेविगेशन')} className={`fixed top-0 w-full z-50 border-b transition-colors duration-200 pointer-events-auto ${isScrolled ? 'glassmorphism border-b-white/10 py-3' : 'border-transparent bg-gradient-to-b from-black/70 to-transparent py-4'
             }`}>
             <div className="page-shell flex min-h-12 items-center justify-between gap-4">
                 {/* Logo and Nav Links */}
                 <div className="flex min-w-0 items-center gap-8 xl:gap-12">
-                    <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
-                        <Film className="h-7 w-7 text-primary" />
-                        <span className="font-display text-xl font-bold tracking-tight text-primary sm:text-2xl">
+                    <Link href="/" className="group flex shrink-0 items-center gap-2 sm:gap-2.5">
+                        <Film className="h-6 w-6 text-primary sm:h-7 sm:w-7" />
+                        <span className="font-display text-lg font-bold tracking-tight text-primary sm:text-xl md:text-2xl">
                             CineHindi
                         </span>
-                        <span className="hidden sm:block text-[10px] uppercase tracking-[0.3em] text-muted-foreground self-end pb-1">
+                        <span className="hidden pb-1 text-[10px] uppercase tracking-[0.3em] text-muted-foreground sm:block self-end">
                             सिनेमाघर
                         </span>
                     </Link>
 
                     <div className="hidden md:flex items-center gap-6 text-[13px] font-semibold lg:gap-8">
                         <Link href="/" className="text-white/70 hover:text-white transition-colors relative group">
-                            Home
+                            {l('Home', 'होम')}
                             <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
                         </Link>
                         <Link href="/browse" className="text-white/70 hover:text-white transition-colors relative group">
-                            Movies
+                            {l('Movies', 'फिल्में')}
                             <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
                         </Link>
                         <Link href="/search" className="text-white/70 hover:text-white transition-colors relative group">
-                            Search
+                            {l('Search', 'खोज')}
                             <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
                         </Link>
                         <Link href="/profile" className="text-white/70 hover:text-white transition-colors relative group">
-                            My List
+                            {l('My List', 'मेरी लिस्ट')}
                             <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full"></span>
                         </Link>
                     </div>
                 </div>
 
                 {/* Right Section */}
-                <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-5">
+                <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-5">
                     <div className="relative hidden sm:flex items-center">
                         <motion.div
                             initial={false}
@@ -126,7 +130,7 @@ export default function Navbar() {
                                 type="button"
                                 onClick={handleSearchIconClick}
                                 className="ml-1 inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                aria-label="Search"
+                                aria-label={l('Search', 'खोज')}
                             >
                                 <Search className="w-4 h-4 text-white/50 hover:text-white transition-colors" />
                             </button>
@@ -135,7 +139,7 @@ export default function Navbar() {
                                     type="text"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search movies..."
+                                    placeholder={l('Search movies...', 'फिल्में खोजें...')}
                                     className="w-full bg-transparent border-none px-3 py-2 text-sm text-white outline-none placeholder:text-muted-foreground"
                                     onFocus={() => setSearchFocused(true)}
                                     onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
@@ -144,7 +148,17 @@ export default function Navbar() {
                         </motion.div>
                     </div>
 
-                    <Link href="/profile" className="relative flex min-h-11 min-w-11 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="My list">
+                    <Link
+                        href="/search"
+                        aria-label={l('Search', 'खोज')}
+                        className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:hidden"
+                    >
+                        <Search className="h-5 w-5" aria-hidden="true" />
+                    </Link>
+
+                    <LanguageToggle />
+
+                    <Link href="/profile" className="relative hidden min-h-11 min-w-11 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex" aria-label={l('My list', 'मेरी लिस्ट')}>
                         <Bookmark className="h-5 w-5" />
                     </Link>
 
@@ -183,7 +197,7 @@ export default function Navbar() {
                                             className="mt-1 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
                                         >
                                             <UserRound className="h-4 w-4" />
-                                            My profile
+                                            {l('My profile', 'मेरा प्रोफ़ाइल')}
                                         </Link>
                                         <Link
                                             href="/account"
@@ -191,7 +205,7 @@ export default function Navbar() {
                                             className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
                                         >
                                             <Settings2 className="h-4 w-4" />
-                                            Account settings
+                                            {l('Account settings', 'अकाउंट सेटिंग्स')}
                                         </Link>
                                         <button
                                             type="button"
@@ -200,12 +214,14 @@ export default function Navbar() {
                                             className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60 motion-reduce:transition-none"
                                         >
                                             <LogOut className="h-4 w-4" />
-                                            {signingOut ? 'Signing out…' : 'Sign out'}
+                                            {signingOut
+                                                ? l('Signing out…', 'साइन आउट हो रहा है…')
+                                                : l('Sign out', 'साइन आउट')}
                                         </button>
                                         {signOutError && (
                                             <p role="alert" className="flex items-start gap-2 px-3 py-2 text-xs text-amber-200">
                                                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                                                Could not sign out. Please try again.
+                                                {l('Could not sign out. Please try again.', 'साइन आउट नहीं हो सका। फिर कोशिश करें।')}
                                             </p>
                                         )}
                                     </motion.div>
@@ -215,11 +231,11 @@ export default function Navbar() {
                     ) : (
                         <Link
                             href="/login"
-                            aria-label="Sign in"
-                            className="flex min-h-11 items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label={l('Sign in', 'साइन इन')}
+                            className="flex min-h-11 items-center gap-2 rounded-full border border-white/20 px-3 py-2 text-sm font-semibold text-white transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-4"
                         >
                             <UserRound className="h-4 w-4" />
-                            <span className="hidden sm:inline">Sign in</span>
+                            <span className="hidden sm:inline">{l('Sign in', 'साइन इन')}</span>
                         </Link>
                     )}
                 </div>

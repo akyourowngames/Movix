@@ -256,7 +256,10 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Users className="w-5 h-5 text-primary" />
-                  <h2 className="font-display text-lg md:text-xl font-bold">Cast / कलाकार</h2>
+                  <h2 className="font-display text-lg md:text-xl font-bold">
+                    <span className="lang-en">Cast</span>
+                    <span className="lang-hi">कलाकार</span>
+                  </h2>
                 </div>
                 <div className="w-full min-w-0 max-w-full overflow-hidden">
                   <div className="flex w-full min-w-0 max-w-full gap-4 overflow-x-auto overscroll-x-contain pb-2 px-4 md:px-0">
@@ -294,7 +297,10 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
         {/* Similar Movies */}
         {similar.length > 0 && (
           <div className="mt-16">
-            <h3 className="font-display text-3xl font-bold mb-8">Similar Movies / समान फिल्में</h3>
+            <h3 className="font-display text-3xl font-bold mb-8">
+              <span className="lang-en">Similar Movies</span>
+              <span className="lang-hi">समान फिल्में</span>
+            </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
               {similar.map((m: SimilarMovie) => (
                 <Link

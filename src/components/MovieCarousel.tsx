@@ -5,6 +5,7 @@ import { useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import MovieCard from './MovieCard'
 import type { Movie } from '@/lib/data'
+import { useLanguage } from '@/components/LanguageProvider'
 
 interface MovieCarouselProps {
     title: string;
@@ -18,6 +19,9 @@ interface MovieCarouselProps {
 export default function MovieCarousel({ title, hindiTitle, subtitle, movies, type = 'movie', variant = 'default' }: MovieCarouselProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const prefersReducedMotion = useReducedMotion()
+    const { language } = useLanguage()
+    const heading = language === 'hi' ? hindiTitle || title : title
+    const showSubtitle = language === 'en' && Boolean(subtitle)
 
     const scrollLeft = () => {
         if (scrollRef.current) {
@@ -42,12 +46,10 @@ export default function MovieCarousel({ title, hindiTitle, subtitle, movies, typ
             <div className="page-shell mb-5 flex items-end justify-between gap-4">
                 <div className="flex-1 min-w-0">
                     <h2 className="truncate font-display text-2xl font-semibold tracking-tight text-white md:text-3xl">
-                        {title}
+                        {heading}
                     </h2>
-                    {(hindiTitle || subtitle) && (
+                    {showSubtitle && (
                         <p className="mt-1 text-xs tracking-wide text-muted-foreground md:text-sm">
-                            {hindiTitle}
-                            {hindiTitle && subtitle ? <span className="text-white/30"> · </span> : null}
                             {subtitle}
                         </p>
                     )}

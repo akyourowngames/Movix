@@ -64,6 +64,14 @@
     scrollbar-width: none;
   }
 
+  html:not([data-lang]) .lang-hi,
+  html[data-lang='en'] .lang-hi {
+    display: none !important;
+  }
+  html[data-lang='hi'] .lang-en {
+    display: none !important;
+  }
+
   .page-shell {
     @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10;
   }

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Play, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { useLanguage } from '@/components/LanguageProvider'
 
 export interface HeroMovie {
   id: number
@@ -27,6 +28,8 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   const [direction, setDirection] = useState(0)
   const prefersReducedMotion = useReducedMotion()
   const [pageVisible, setPageVisible] = useState(true)
+  const { language } = useLanguage()
+  const l = (en: string, hi: string) => (language === 'hi' ? hi : en)
 
   const currentMovie = movies[currentIndex]
 
@@ -183,7 +186,9 @@ export default function HeroSection({ movies }: HeroSectionProps) {
               className="mb-4 inline-flex items-center border-l-2 border-primary py-1 pl-3"
             >
               <span className="eyebrow text-primary">
-                {currentMovie.media_type === 'tv' ? 'Series Premiere' : 'Exclusive Premiere'}
+                {currentMovie.media_type === 'tv'
+                  ? l('Series Premiere', 'सीरीज़ प्रीमियर')
+                  : l('Exclusive Premiere', 'एक्सक्लूसिव प्रीमियर')}
               </span>
             </motion.div>
 
@@ -206,7 +211,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   className="flex min-h-12 items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-background transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <Play className="w-3 h-3 md:w-4 md:h-4" fill="currentColor" />
-                  Watch Now
+                  {l('Watch Now', 'अभी देखें')}
                 </Link>
               </div>
 
@@ -215,7 +220,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                 className="flex min-h-12 items-center gap-2 rounded-full border border-white/30 bg-black/25 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                Free Trial
+                {l('Free Trial', 'फ्री ट्रायल')}
               </motion.button>
             </div>
           </motion.div>

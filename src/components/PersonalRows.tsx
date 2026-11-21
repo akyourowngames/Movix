@@ -175,6 +175,7 @@ export default function PersonalRows({ kind }: { kind: Kind }) {
     return (
       <MovieCarousel
         title={`Because You Watched ${seed.title}`}
+        hindiTitle={`क्योंकि आपने ${seed.title} देखा`}
         subtitle="More like this"
         movies={items.map(toMovie)}
       />

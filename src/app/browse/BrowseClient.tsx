@@ -21,6 +21,7 @@ import {
 import { getImageUrl, type CatalogItem } from '@/lib/catalog'
 import { genreNamesFor } from '@/lib/genres'
 import { MediaSkeleton } from '@/components/ui/MediaSkeleton'
+import { useLanguage, type Language } from '@/components/LanguageProvider'
 import {
   CATEGORIES,
   CATEGORY_MAP,
@@ -52,10 +53,16 @@ const LANGUAGE_BADGES: Record<string, string> = {
   kn: 'KN',
 }
 
-const MEDIA_LABEL: Record<CategoryMedia, string> = {
-  all: 'Movies & Series',
-  movie: 'Movies',
-  tv: 'Web Series',
+const MEDIA_LABEL: Record<CategoryMedia, { en: string; hi: string }> = {
+  all: { en: 'Movies & Series', hi: 'फिल्में और सीरीज़' },
+  movie: { en: 'Movies', hi: 'फिल्में' },
+  tv: { en: 'Web Series', hi: 'वेब सीरीज़' },
+}
+
+const GROUP_LABEL: Record<string, { en: string; hi: string }> = {
+  spotlight: { en: 'Spotlight', hi: 'स्पॉटलाइट' },
+  industry: { en: 'Industry', hi: 'इंडस्ट्री' },
+  genres: { en: 'Genres', hi: 'शैलियाँ' },
 }
 
 const GROUP_ICON = {
@@ -75,14 +82,18 @@ function CategoryNavButton({
   active,
   onClick,
   onPrefetch,
+  language,
   compact = false,
 }: {
   item: CategoryDef
   active: boolean
   onClick: () => void
   onPrefetch?: () => void
+  language: Language
   compact?: boolean
 }) {
+  const label = language === 'hi' ? item.hindi : item.label
+
   if (compact) {
     return (
       <button
@@ -98,7 +109,7 @@ function CategoryNavButton({
             : 'border-white/10 bg-white/[0.03] text-white/60 hover:border-white/25 hover:bg-white/10 hover:text-white'
         }`}
       >
-        {item.label}
+        {label}
       </button>
     )
   }
@@ -117,7 +128,7 @@ function CategoryNavButton({
           : 'text-white/65 hover:bg-white/5 hover:text-white'
       }`}
     >
-      <span className="truncate">{item.label}</span>
+      <span className="truncate">{label}</span>
       {active ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" /> : null}
     </button>
   )
@@ -152,6 +163,9 @@ export default function BrowseClient({
   const [totalResults, setTotalResults] = useState(initialTotalResults)
   const [reloadKey, setReloadKey] = useState(0)
   const [genresOpen, setGenresOpen] = useState(false)
+  const { language } = useLanguage()
+  const l = (en: string, hi: string) => (language === 'hi' ? hi : en)
+  const mediaLabel = MEDIA_LABEL[type][language]
   const initialKeyRef = useRef(`${initialType}:${initialCategoryId}:${initialPage}`)
 
   const category = CATEGORY_MAP[categoryId] ?? CATEGORY_MAP.trending
@@ -292,8 +306,10 @@ export default function BrowseClient({
   }
 
   const blurb =
-    category.blurb ??
-    `Top ${category.label.toLowerCase()} picks across movies and series`
+    language === 'hi'
+      ? `${category.hindi} टाइटल्स देखें — रेटिंग, पोस्टर और स्ट्रीमिंग जानकारी के साथ।`
+      : category.blurb ?? `Top ${category.label.toLowerCase()} picks across movies and series`
+  const headingLabel = language === 'hi' ? category.hindi : category.label
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-background pb-24 pt-24 sm:pt-28">
@@ -306,20 +322,26 @@ export default function BrowseClient({
             <div className="min-w-0">
               <nav className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
                 <Link href="/browse" className="transition-colors hover:text-white/70">
-                  Browse
+                  {l('Browse', 'ब्राउज़')}
                 </Link>
                 <span>/</span>
-                <span className="text-primary">{MEDIA_LABEL[type]}</span>
+                <span className="text-primary">{mediaLabel}</span>
               </nav>
-              <h1 className="font-display text-4xl font-bold md:text-5xl">{category.label}</h1>
+              <h1 className="font-display text-4xl font-bold md:text-5xl">{headingLabel}</h1>
               <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                 <span>{blurb}</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground">{category.hindi}</span>
+                {language === 'en' && (
+                  <>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="text-muted-foreground">{category.hindi}</span>
+                  </>
+                )}
                 {totalResults > 0 && (
                   <>
                     <span className="text-muted-foreground">·</span>
-                    <span className="text-white/70">{totalResults.toLocaleString()}+ titles</span>
+                    <span className="text-white/70">
+                      {totalResults.toLocaleString()}+ {l('titles', 'टाइटल्स')}
+                    </span>
                   </>
                 )}
               </p>
@@ -329,8 +351,13 @@ export default function BrowseClient({
               {(['all', 'movie', 'tv'] as const).map((option) => {
                 const Icon = option === 'movie' ? Film : option === 'tv' ? Tv : LayoutGrid
                 const label =
-                  option === 'movie' ? 'Movies' : option === 'tv' ? 'Series' : 'All'
-                const desktopLabel = option === 'tv' ? 'Web Series' : label
+                  option === 'movie'
+                    ? l('Movies', 'फिल्में')
+                    : option === 'tv'
+                      ? l('Series', 'सीरीज़')
+                      : l('All', 'सभी')
+                const desktopLabel =
+                  option === 'tv' ? l('Web Series', 'वेब सीरीज़') : label
                 const active = type === option
                 return (
                   <button
@@ -378,7 +405,7 @@ export default function BrowseClient({
                         : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
                     }`}
                   >
-                    {item.label}
+                    {language === 'hi' ? item.hindi : item.label}
                   </button>
                 ))}
               </div>
@@ -395,7 +422,7 @@ export default function BrowseClient({
               }`}
             >
               <SlidersHorizontal className="h-4 w-4" />
-              Genres
+              {l('Genres', 'शैलियाँ')}
               <ChevronDown
                 className={`h-4 w-4 transition-transform ${genresOpen ? 'rotate-180' : ''}`}
               />
@@ -411,6 +438,7 @@ export default function BrowseClient({
                   active={categoryId === item.id}
                   onClick={() => changeCategory(item.id)}
                   onPrefetch={() => prefetchCategory(item.id)}
+                  language={language}
                   compact
                 />
               ))}
@@ -430,7 +458,7 @@ export default function BrowseClient({
                     <div className="mb-2 flex items-center gap-2 px-2">
                       <Icon className="h-3.5 w-3.5 text-primary/70" />
                   <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                        {group.label}
+                        {GROUP_LABEL[group.id]?.[language] ?? group.label}
                       </p>
                     </div>
                     {group.id === 'genres' ? (
@@ -442,6 +470,7 @@ export default function BrowseClient({
                             active={categoryId === item.id}
                             onClick={() => changeCategory(item.id)}
                             onPrefetch={() => prefetchCategory(item.id)}
+                            language={language}
                             compact
                           />
                         ))}
@@ -455,6 +484,7 @@ export default function BrowseClient({
                             active={categoryId === item.id}
                             onClick={() => changeCategory(item.id)}
                             onPrefetch={() => prefetchCategory(item.id)}
+                            language={language}
                           />
                         ))}
                       </div>
@@ -471,14 +501,14 @@ export default function BrowseClient({
           <section className="min-w-0 flex-1">
             {error ? (
               <div className="flex h-72 flex-col items-center justify-center gap-4 rounded-3xl border border-white/5 bg-white/[0.02] text-muted-foreground">
-                <p>Couldn&apos;t load titles. Please retry.</p>
+                <p>{l('Couldn’t load titles. Please retry.', 'टाइटल्स लोड नहीं हो सके। फिर कोशिश करें।')}</p>
                 <button
                     type="button"
                   onClick={() => setReloadKey((key) => key + 1)}
                     className="flex min-h-11 items-center gap-2 rounded-full bg-white/10 px-4 py-2 transition-all hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Retry
+                  {l('Retry', 'फिर कोशिश करें')}
                 </button>
               </div>
             ) : loading && items.length === 0 ? (
@@ -487,25 +517,26 @@ export default function BrowseClient({
               <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 bg-white/[0.02] py-24 text-center">
                 <LayoutGrid className="mb-4 h-10 w-10 text-white/15" />
                 <p className="max-w-sm text-sm text-muted-foreground">
-                  No titles in this category for {MEDIA_LABEL[type].toLowerCase()}. Try another
-                  category or switch media.
+                  {language === 'hi'
+                    ? `इस कैटेगरी में ${mediaLabel.toLowerCase()} के टाइटल्स नहीं मिले। दूसरी कैटेगरी या मीडिया चुनें।`
+                    : `No titles in this category for ${mediaLabel.toLowerCase()}. Try another category or switch media.`}
                 </p>
                 <button
                   type="button"
                   onClick={() => changeType('all')}
                   className="mt-5 min-h-11 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
                 >
-                  Show all media
+                  {l('Show all media', 'सभी मीडिया दिखाएँ')}
                 </button>
               </div>
             ) : (
               <>
                 <div className="mb-4 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
                   <span>
-                    {category.label} · {MEDIA_LABEL[type]}
+                    {headingLabel} · {mediaLabel}
                   </span>
                   <span>
-                    Page {page} / {totalPages}
+                    {l('Page', 'पेज')} {page} / {totalPages}
                   </span>
                 </div>
 
@@ -540,7 +571,7 @@ export default function BrowseClient({
                           ) : (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                               <Film className="h-8 w-8" aria-hidden="true" />
-                              <span className="sr-only">Poster unavailable</span>
+                              <span className="sr-only">{l('Poster unavailable', 'पोस्टर उपलब्ध नहीं')}</span>
                             </div>
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -555,7 +586,7 @@ export default function BrowseClient({
                           <div className="absolute inset-x-2 bottom-2 flex items-center justify-between">
                             {media === 'tv' ? (
                               <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-black">
-                                Series
+                                {l('Series', 'सीरीज़')}
                               </span>
                             ) : (
                               <span />
@@ -580,11 +611,11 @@ export default function BrowseClient({
                         <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                           {item.release_date && Number.isFinite(new Date(item.release_date).getTime())
                             ? new Date(item.release_date).getFullYear()
-                            : 'Release date unavailable'}
+                            : l('Release date unavailable', 'रिलीज़ डेट उपलब्ध नहीं')}
                           {genreNamesFor(item.genre_ids, 2).length > 0
                             ? ` · ${genreNamesFor(item.genre_ids, 2).join(' · ')}`
                             : ''}
-                          {media === 'tv' ? ' · Series' : ''}
+                          {media === 'tv' ? ` · ${l('Series', 'सीरीज़')}` : ''}
                         </p>
                       </Link>
                     )
@@ -600,7 +631,7 @@ export default function BrowseClient({
                     className="flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium transition-all hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    Previous
+                    {l('Previous', 'पिछला')}
                   </button>
                   <span className="min-w-[110px] text-center text-sm text-white/70">
                     {page} / {totalPages}
@@ -611,7 +642,7 @@ export default function BrowseClient({
                     disabled={page >= totalPages || loading}
                     className="flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium transition-all hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Next
+                    {l('Next', 'अगला')}
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>

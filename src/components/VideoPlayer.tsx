@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
 import { recordPlayback } from '@/lib/profileActions'
@@ -68,6 +68,8 @@ export default function VideoPlayer({
   const [iframeKey, setIframeKey] = useState(0)
   const [frameIdentity, setFrameIdentity] = useState(`${tmdbId}:${type}:${season}:${episode}`)
   const [isLocalhost, setIsLocalhost] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const mobileDefaultApplied = useRef(false)
   const prefersReducedMotion = useReducedMotion()
 
   const currentServer = SERVERS[serverIndex]
@@ -75,6 +77,20 @@ export default function VideoPlayer({
   // Check if running on localhost (client-side only)
   useEffect(() => {
     setIsLocalhost(window.location.hostname.includes('localhost'))
+  }, [])
+
+  // Some embed providers reject mobile playback. Start phones on AutoEmbed.
+  useEffect(() => {
+    if (mobileDefaultApplied.current) return
+    mobileDefaultApplied.current = true
+    const mobile = window.matchMedia('(max-width: 767px)').matches
+    setIsMobile(mobile)
+    if (!mobile) return
+    const autoEmbedIndex = SERVERS.findIndex((server) => server.name === 'AutoEmbed')
+    if (autoEmbedIndex > 0) {
+      setServerIndex(autoEmbedIndex)
+      setIframeKey((key) => key + 1)
+    }
   }, [])
 
   const currentFrameIdentity = `${tmdbId}:${type}:${season}:${episode}`
@@ -215,7 +231,7 @@ export default function VideoPlayer({
             <p className="mb-6 max-w-sm text-sm text-muted-foreground">
               Try another server — content may not be indexed here.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
               <motion.button
                 type="button"
                 whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
@@ -236,6 +252,14 @@ export default function VideoPlayer({
                 <Wifi className="w-4 h-4" />
                 Try Next Server
               </motion.button>
+              <a
+                href={getEmbedUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-11 items-center justify-center rounded-lg border border-white/20 px-4 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Open in new tab
+              </a>
             </div>
           </div>
         )}
@@ -275,6 +299,20 @@ export default function VideoPlayer({
           <p>
             Provider availability can vary. A loaded provider page does not confirm that playback works.
           </p>
+          {isMobile && (
+            <p className="text-amber-200/90">
+              On phones, AutoEmbed is usually the most reliable. If a server says it is
+              unreachable, switch servers or open this server in a new tab.
+            </p>
+          )}
+          <a
+            href={getEmbedUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex text-primary underline-offset-4 hover:underline"
+          >
+            Open {currentServer.name} in a new tab
+          </a>
           {isLocalhost && (
             <p className="text-amber-200 font-medium">
               ⚠️ Running on localhost - Some servers may show CORS errors in console. This is normal and will work on deployed site (Vercel/Netlify).

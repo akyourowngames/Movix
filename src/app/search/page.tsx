@@ -7,6 +7,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { getImageUrl, type CatalogItem } from '@/lib/catalog'
 import { MediaSkeleton } from '@/components/ui/MediaSkeleton'
+import { useLanguage } from '@/components/LanguageProvider'
 
 const GENRES = [
   { id: 28, name: 'Action', hindi: 'एक्शन' },
@@ -29,6 +30,8 @@ function SearchSkeleton() {
 function SearchPageContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
+  const { language } = useLanguage()
+  const l = (en: string, hi: string) => (language === 'hi' ? hi : en)
 
   const [query, setQuery] = useState(initialQuery)
   const [items, setItems] = useState<CatalogItem[]>([])
@@ -182,30 +185,30 @@ function SearchPageContent() {
   const filterControls = (
     <>
       <fieldset className="mb-7">
-        <legend className="mb-3 font-medium">Content type</legend>
+        <legend className="mb-3 font-medium">{l('Content type', 'कंटेंट टाइप')}</legend>
         <div className="grid grid-cols-3 gap-2">
           {([
-            { value: 'both', label: 'Both' },
-            { value: 'movie', label: 'Movies' },
-            { value: 'tv', label: 'TV' },
+            { value: 'both', en: 'Both', hi: 'दोनों' },
+            { value: 'movie', en: 'Movies', hi: 'फिल्में' },
+            { value: 'tv', en: 'TV', hi: 'टीवी' },
           ] as const).map((option) => (
             <button key={option.value} type="button" aria-pressed={contentType === option.value}
               onClick={() => setContentType(option.value)}
               className={`min-h-11 rounded-lg border px-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${contentType === option.value ? 'border-primary bg-primary text-black' : 'border-white/10 bg-white/5 text-white hover:bg-white/10'}`}>
-              {option.label}
+              {l(option.en, option.hi)}
             </button>
           ))}
         </div>
       </fieldset>
 
       <fieldset className="mb-7">
-        <legend className="mb-3 font-medium">Genres</legend>
+        <legend className="mb-3 font-medium">{l('Genres', 'शैलियाँ')}</legend>
         <div className="grid grid-cols-2 gap-x-3 gap-y-2">
           {GENRES.map((genre) => (
             <label key={genre.id} className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm text-white/80">
               <input type="checkbox" checked={selectedGenres.includes(genre.id)} onChange={() => toggleGenre(genre.id)}
                 className="h-5 w-5 shrink-0 accent-[hsl(var(--primary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-              <span>{genre.name}</span>
+              <span>{l(genre.name, genre.hindi)}</span>
             </label>
           ))}
         </div>
@@ -213,27 +216,27 @@ function SearchPageContent() {
 
       <div className="mb-7">
         <label htmlFor="min-rating" className="mb-3 flex items-center justify-between font-medium">
-          <span>Minimum rating</span><span className="text-primary tabular-nums">{minRating.toFixed(1)}</span>
+          <span>{l('Minimum rating', 'न्यूनतम रेटिंग')}</span><span className="text-primary tabular-nums">{minRating.toFixed(1)}</span>
         </label>
         <input id="min-rating" type="range" min="0" max="10" step="0.5" value={minRating}
           onChange={(event) => setMinRating(Number(event.target.value))}
           className="min-h-11 w-full accent-[hsl(var(--primary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
-        <div className="flex justify-between text-xs text-muted-foreground"><span>Any rating</span><span>10</span></div>
+        <div className="flex justify-between text-xs text-muted-foreground"><span>{l('Any rating', 'कोई भी रेटिंग')}</span><span>10</span></div>
       </div>
 
       <fieldset>
-        <legend className="mb-3 font-medium">Release year</legend>
+        <legend className="mb-3 font-medium">{l('Release year', 'रिलीज़ वर्ष')}</legend>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <label className="min-w-0">
-            <span className="mb-1 block text-xs text-muted-foreground">From</span>
-            <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label="From year"
+            <span className="mb-1 block text-xs text-muted-foreground">{l('From', 'से')}</span>
+            <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label={l('From year', 'से वर्ष')}
               value={yearRange[0]} onChange={(event) => setYearRange([Number(event.target.value), yearRange[1]])}
               className="h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40" />
           </label>
-          <span className="mt-5 text-muted-foreground">to</span>
+          <span className="mt-5 text-muted-foreground">{l('to', 'तक')}</span>
           <label className="min-w-0">
-            <span className="mb-1 block text-xs text-muted-foreground">To</span>
-            <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label="To year"
+            <span className="mb-1 block text-xs text-muted-foreground">{l('To', 'तक')}</span>
+            <input type="number" min="1900" max={new Date().getFullYear()} inputMode="numeric" aria-label={l('To year', 'तक वर्ष')}
               value={yearRange[1]} onChange={(event) => setYearRange([yearRange[0], Number(event.target.value)])}
               className="h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40" />
           </label>
@@ -248,17 +251,17 @@ function SearchPageContent() {
         {/* Search Bar */}
         <div className="mx-auto mb-8 max-w-3xl sm:mb-12">
           <h1 className="mb-5 text-center font-display text-3xl font-bold tracking-tight sm:text-4xl">
-            Discover your next favourite
+            {l('Discover your next favourite', 'अपनी अगली पसंदीदा कहानी खोजें')}
           </h1>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text"
-              aria-label="Search movies and TV shows"
+              aria-label={l('Search movies and TV shows', 'फिल्में और टीवी शो खोजें')}
               maxLength={100}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search movies & shows..."
+              placeholder={l('Search movies & shows...', 'फिल्में और शो खोजें...')}
               className="min-h-14 w-full border border-white/15 bg-card py-4 pl-12 pr-4 text-white placeholder:text-muted-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
             />
           </div>
@@ -268,7 +271,7 @@ function SearchPageContent() {
           {/* Desktop filter rail */}
           <aside className="hidden lg:block">
             <div className="sticky top-24 border border-white/10 bg-card p-5">
-              <h2 className="mb-6 font-display text-xl font-bold">Filters</h2>
+              <h2 className="mb-6 font-display text-xl font-bold">{l('Filters', 'फ़िल्टर')}</h2>
               {filterControls}
 
             </div>
@@ -278,7 +281,11 @@ function SearchPageContent() {
           <div className="min-w-0">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
-                {loading ? 'Updating results…' : query.trim().length >= 2 ? `${results.length} results` : 'Search to discover something to watch'}
+                {loading
+                  ? l('Updating results…', 'परिणाम अपडेट हो रहे हैं…')
+                  : query.trim().length >= 2
+                    ? l(`${results.length} results`, `${results.length} परिणाम`)
+                    : l('Search to discover something to watch', 'देखने के लिए कुछ खोजें')}
               </p>
               <button
                 ref={filterTriggerRef}
@@ -289,7 +296,7 @@ function SearchPageContent() {
                 aria-expanded={showFilters}
               >
                 <Filter className="h-4 w-4" />
-                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                {l('Filters', 'फ़िल्टर')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
               </button>
               {activeFilterCount > 0 && (
                 <button
@@ -297,21 +304,21 @@ function SearchPageContent() {
                   onClick={() => { setSelectedGenres([]); setMinRating(0); setYearRange([1980, new Date().getFullYear()]) }}
                   className="min-h-11 rounded-xl px-3 text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                 >
-                  Clear filters
+                  {l('Clear filters', 'फ़िल्टर साफ़ करें')}
                 </button>
               )}
             </div>
 
             {error ? (
               <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground">
-                <p>Search failed. Please retry.</p>
+                <p>{l('Search failed. Please retry.', 'खोज विफल रही। फिर कोशिश करें।')}</p>
                 <button
                   type="button"
                   onClick={() => setReloadKey((k) => k + 1)}
                   className="flex min-h-11 items-center gap-2 rounded-lg bg-white/10 px-4 py-2 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Retry
+                  {l('Retry', 'फिर कोशिश करें')}
                 </button>
               </div>
             ) : loading && items.length === 0 ? (
@@ -340,7 +347,7 @@ function SearchPageContent() {
                         ) : (
                           <div className="flex h-full items-center justify-center text-muted-foreground">
                             {isTV ? <Tv className="h-8 w-8" aria-hidden="true" /> : <Film className="h-8 w-8" aria-hidden="true" />}
-                            <span className="sr-only">Poster unavailable</span>
+                            <span className="sr-only">{l('Poster unavailable', 'पोस्टर उपलब्ध नहीं')}</span>
                           </div>
                         )}
                         <div className="absolute top-2 left-2 bg-black/80 backdrop-blur px-2 py-1 rounded-lg">
@@ -357,7 +364,7 @@ function SearchPageContent() {
                       <p className="text-xs text-muted-foreground mt-1">
                         {item.release_date && Number.isFinite(new Date(item.release_date).getTime())
                           ? new Date(item.release_date).getFullYear()
-                          : 'Release date unavailable'}
+                          : l('Release date unavailable', 'रिलीज़ डेट उपलब्ध नहीं')}
                       </p>
                     </Link>
                   )
@@ -365,11 +372,11 @@ function SearchPageContent() {
               </div>
             ) : query.trim().length >= 2 ? (
               <div className="text-center py-20 text-muted-foreground" role="status">
-                No movies found. Try different keywords or filters.
+                {l('No movies found. Try different keywords or filters.', 'कोई फिल्म नहीं मिली। दूसरे शब्द या फ़िल्टर आज़माएँ।')}
               </div>
             ) : (
               <div className="text-center py-20 text-muted-foreground" role="status">
-                Start typing to search movies...
+                {l('Start typing to search movies...', 'फिल्में खोजने के लिए टाइप करें...')}
               </div>
             )}
           </div>
@@ -406,8 +413,8 @@ function SearchPageContent() {
                 <span className="h-1 w-10 rounded-full bg-white/25" />
               </div>
               <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                <h2 id="mobile-filter-title" className="font-display text-xl font-bold">Filters</h2>
-                <button type="button" onClick={() => setShowFilters(false)} className="flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="Close filters">
+                <h2 id="mobile-filter-title" className="font-display text-xl font-bold">{l('Filters', 'फ़िल्टर')}</h2>
+                <button type="button" onClick={() => setShowFilters(false)} className="flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={l('Close filters', 'फ़िल्टर बंद करें')}>
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -416,10 +423,10 @@ function SearchPageContent() {
               </div>
               <div className="flex gap-3 border-t border-white/10 bg-zinc-950 px-5 py-4">
                 <button type="button" onClick={() => { setSelectedGenres([]); setMinRating(0); setYearRange([1980, new Date().getFullYear()]) }} className="min-h-12 flex-1 rounded-xl border border-white/15 px-4 text-sm font-medium text-white hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                  Reset
+                  {l('Reset', 'रीसेट')}
                 </button>
                 <button type="button" onClick={() => setShowFilters(false)} className="min-h-12 flex-[2] rounded-xl bg-primary px-4 text-sm font-semibold text-black transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950">
-                  Show {results.length} results
+                  {l(`Show ${results.length} results`, `${results.length} परिणाम दिखाएँ`)}
                 </button>
               </div>
             </motion.section>
