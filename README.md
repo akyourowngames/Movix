@@ -22,6 +22,7 @@ CineHindi is a streaming-style catalogue built on top of TMDB. You can browse an
 
 - **Guest-first** — no signup wall. Watch history, likes and watchlist are saved locally so recommendations and the profile page still work.
 - **Optional accounts** — email/password auth via Supabase. Your guest library is merged into the account on first sign-in.
+- **Full account settings** — password reset, email change, avatar upload, password change, global sign-out, clear library, and self-serve account deletion. Setup: [docs/ACCOUNT_SETUP.md](./docs/ACCOUNT_SETUP.md).
 - **Cloud sync** — watch history, watchlist, favorites and resume points stay in sync with Postgres + row-level security.
 - **Resume where you left off** — TV shows remember the last season and episode you opened and jump straight back to it.
 - **Personal recommendations** — “For You” and “Because You Watched …” rows built from genre affinity, recency decay and language preferences.

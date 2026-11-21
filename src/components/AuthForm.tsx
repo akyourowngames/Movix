@@ -64,7 +64,7 @@ function FieldLabel({
 
 export default function AuthForm({ mode }: { mode: AuthMode }) {
   const isLogin = mode === 'login'
-  const { configured, loading: authLoading, user, signIn, signUp } = useAuth()
+  const { configured, loading: authLoading, user, signIn, signUp, resendConfirmation } = useAuth()
   const router = useRouter()
 
   const [email, setEmail] = useState('')
@@ -74,6 +74,7 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [resending, setResending] = useState(false)
   const [nextPath, setNextPath] = useState('/')
 
   useEffect(() => {
@@ -117,7 +118,12 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
     try {
       const result = isLogin
         ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password, displayName.trim() || undefined)
+        : await signUp(
+            email.trim(),
+            password,
+            displayName.trim() || undefined,
+            nextPath
+          )
 
       if (result.error) {
         setError(result.error)
@@ -142,6 +148,25 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
 
   const emailIndex = isLogin ? 1 : 2
   const passwordIndex = isLogin ? 2 : 3
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('Enter your email above first.')
+      return
+    }
+
+    setResending(true)
+    setError(null)
+    setInfo(null)
+    const result = await resendConfirmation(email.trim())
+    setResending(false)
+
+    if (result.error) {
+      setError(result.error)
+    } else {
+      setInfo('Confirmation email sent. Check your inbox and spam folder.')
+    }
+  }
 
   const fieldClass =
     'h-12 w-full rounded-lg border border-white/15 bg-black/30 pl-11 text-sm text-white outline-none transition-colors placeholder:text-white/40 hover:border-white/25 focus:border-primary focus:ring-2 focus:ring-primary/25'
@@ -369,6 +394,17 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
                         </p>
                       </div>
                     )}
+
+                    {isLogin && (
+                      <div className="mt-2 flex justify-end">
+                        <Link
+                          href="/forgot-password"
+                          className="inline-flex min-h-9 items-center text-xs font-medium text-white/55 underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          Forgot password?
+                        </Link>
+                      </div>
+                    )}
                   </div>
 
                   <AnimatePresence initial={false}>
@@ -401,6 +437,18 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  {isLogin && error && /confirm your email/i.test(error) && (
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={resending}
+                      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/35 bg-primary/10 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      {resending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                      Resend confirmation email
+                    </button>
+                  )}
 
                   <button
                     type="submit"

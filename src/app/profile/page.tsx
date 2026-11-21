@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Clock, Film, Heart, History, Loader2, Play, Plus, Sparkles } from 'lucide-react'
+import { Clock, Film, Heart, History, Loader2, Play, Plus, Sparkles, UserCog } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
 import { useLocalProfile, type HistoryItem, type LikeItem } from '@/hooks/useLocalProfile'
 import { fetchLibrary, type CloudLibrary } from '@/lib/cloud'
@@ -376,6 +376,18 @@ export default function ProfilePage() {
               >
                 <Plus className="h-4 w-4" />
                 Create account
+              </Link>
+            </div>
+          )}
+
+          {user && (
+            <div className="flex shrink-0 gap-3">
+              <Link
+                href="/account"
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-5 py-2.5 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none"
+              >
+                <UserCog className="h-4 w-4" aria-hidden="true" />
+                Account settings
               </Link>
             </div>
           )}

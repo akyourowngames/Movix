@@ -13,6 +13,7 @@ import {
 import type { User } from '@supabase/supabase-js'
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
 import { detachUser, setCloudUser, syncOnSignIn } from '@/lib/cloud'
+import { authCallbackUrl } from '@/lib/authRedirects'
 
 export interface UserProfile {
   id: string
@@ -37,19 +38,49 @@ interface AuthContextValue {
   librarySyncError: boolean
   retryLibrarySync: () => Promise<boolean>
   signIn: (email: string, password: string) => Promise<AuthResult>
-  signUp: (email: string, password: string, displayName?: string) => Promise<AuthResult>
+  signUp: (
+    email: string,
+    password: string,
+    displayName?: string,
+    nextPath?: string
+  ) => Promise<AuthResult>
   signOut: () => Promise<void>
+  signOutEverywhere: () => Promise<void>
+  requestPasswordReset: (email: string) => Promise<AuthResult>
+  updatePassword: (password: string) => Promise<AuthResult>
+  resendConfirmation: (email: string) => Promise<AuthResult>
   refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const friendlyError = (message: string) => {
+export const friendlyAuthError = (message: string) => {
   if (/invalid login credentials/i.test(message)) return 'Incorrect email or password.'
   if (/email not confirmed/i.test(message)) return 'Please confirm your email before signing in.'
-  if (/already registered/i.test(message)) return 'An account with this email already exists. Try signing in.'
-  if (/password should be at least/i.test(message)) return 'Password must be at least 6 characters.'
-  if (/rate limit/i.test(message)) return 'Too many attempts. Please wait a moment and try again.'
+  if (/already registered|already been registered/i.test(message)) {
+    return 'An account with this email already exists. Try signing in.'
+  }
+  if (/password should be at least/i.test(message)) {
+    return 'Password must be at least 6 characters.'
+  }
+  if (/new password should be different/i.test(message)) {
+    return 'Choose a password different from your current one.'
+  }
+  if (/token has expired|otp_expired|invalid or has expired|flow state/i.test(message)) {
+    return 'This link has expired. Request a new one.'
+  }
+  if (/rate limit/i.test(message)) {
+    return 'Too many requests. Please wait a moment and try again.'
+  }
+  if (/for security purposes.*reauthenticate|reauthentication/i.test(message)) {
+    return 'Please sign in again before changing sensitive account settings.'
+  }
+  if (/invalid format|unable to validate email/i.test(message)) {
+    return 'Enter a valid email address.'
+  }
+  if (/email address.*already/i.test(message)) {
+    return 'That email is already attached to another account.'
+  }
   return message
 }
 
@@ -215,11 +246,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return { error: 'Accounts are not configured on this deployment.' }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error: error ? friendlyError(error.message) : null }
+    return { error: error ? friendlyAuthError(error.message) : null }
   }, [])
 
   const signUp = useCallback(
-    async (email: string, password: string, displayName?: string): Promise<AuthResult> => {
+    async (
+      email: string,
+      password: string,
+      displayName?: string,
+      nextPath?: string
+    ): Promise<AuthResult> => {
       const supabase = getSupabase()
       if (!supabase) return { error: 'Accounts are not configured on this deployment.' }
 
@@ -228,25 +264,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: displayName ? { display_name: displayName } : undefined,
-          emailRedirectTo:
-            typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
+          emailRedirectTo: authCallbackUrl(nextPath || '/account'),
         },
       })
 
-      if (error) return { error: friendlyError(error.message) }
+      if (error) return { error: friendlyAuthError(error.message) }
       return { error: null, needsConfirmation: !data.session }
     },
     []
   )
 
-  const signOut = useCallback(async () => {
-    const supabase = getSupabase()
-    if (!supabase) return
-
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      throw new Error('Unable to sign out. Please try again.')
-    }
+  const resetAuthState = useCallback(() => {
     detachUser()
     setUser(null)
     setProfile(null)
@@ -256,6 +284,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     librarySyncRequestId.current += 1
     setProfileError(null)
     setLibrarySyncError(false)
+  }, [])
+
+  const signOut = useCallback(async () => {
+    const supabase = getSupabase()
+    if (!supabase) return
+
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      throw new Error('Unable to sign out. Please try again.')
+    }
+    resetAuthState()
+  }, [resetAuthState])
+
+  const signOutEverywhere = useCallback(async () => {
+    const supabase = getSupabase()
+    if (!supabase) return
+
+    const { error } = await supabase.auth.signOut({ scope: 'global' })
+    if (error) {
+      throw new Error('Unable to sign out of all sessions. Please try again.')
+    }
+    resetAuthState()
+  }, [resetAuthState])
+
+  const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
+    const supabase = getSupabase()
+    if (!supabase) return { error: 'Accounts are not configured on this deployment.' }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: authCallbackUrl('/reset-password'),
+    })
+
+    return { error: error ? friendlyAuthError(error.message) : null }
+  }, [])
+
+  const updatePassword = useCallback(async (password: string): Promise<AuthResult> => {
+    const supabase = getSupabase()
+    if (!supabase) return { error: 'Accounts are not configured on this deployment.' }
+
+    const { error } = await supabase.auth.updateUser({ password })
+    return { error: error ? friendlyAuthError(error.message) : null }
+  }, [])
+
+  const resendConfirmation = useCallback(async (email: string): Promise<AuthResult> => {
+    const supabase = getSupabase()
+    if (!supabase) return { error: 'Accounts are not configured on this deployment.' }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: authCallbackUrl('/account') },
+    })
+
+    return { error: error ? friendlyAuthError(error.message) : null }
   }, [])
 
   const refreshProfile = useCallback(async () => {
@@ -320,9 +402,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       signOut,
+      signOutEverywhere,
+      requestPasswordReset,
+      updatePassword,
+      resendConfirmation,
       refreshProfile,
     }),
-    [loading, syncing, syncingUserId, user, profile, profileError, librarySyncError, signIn, signUp, signOut, refreshProfile, retryLibrarySync]
+    [loading, syncing, syncingUserId, user, profile, profileError, librarySyncError, signIn, signUp, signOut, signOutEverywhere, requestPasswordReset, updatePassword, resendConfirmation, refreshProfile, retryLibrarySync]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

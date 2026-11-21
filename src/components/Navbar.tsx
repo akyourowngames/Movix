@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, Bookmark, Film, LogOut, Search, UserRound } from 'lucide-react'
+import { AlertCircle, Bookmark, Film, LogOut, Search, Settings2, UserRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/components/AuthProvider'
@@ -184,6 +184,14 @@ export default function Navbar() {
                                         >
                                             <UserRound className="h-4 w-4" />
                                             My profile
+                                        </Link>
+                                        <Link
+                                            href="/account"
+                                            onClick={() => setMenuOpen(false)}
+                                            className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+                                        >
+                                            <Settings2 className="h-4 w-4" />
+                                            Account settings
                                         </Link>
                                         <button
                                             type="button"
