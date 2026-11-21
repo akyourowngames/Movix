@@ -10,6 +10,7 @@ interface StreamServer {
   note: string
   banner?: string
   requiresImdb?: boolean
+  mobileFriendly?: boolean
   movie: (tmdbId: string, imdbId?: string) => string
   tv: (tmdbId: string, season: number, episode: number, imdbId?: string) => string
 }
@@ -20,6 +21,14 @@ const SERVERS: StreamServer[] = [
     movie: (id: string) => `https://vidsrc.to/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
     note: 'Hindi + English • Hollywood & Bollywood',
+  },
+  {
+    name: 'ModiPlay',
+    movie: (id: string) => `https://rozgarlelo.modiplay.xyz/embed/tmdb/movie?id=${id}`,
+    tv: (id: string, s: number, e: number) =>
+      `https://rozgarlelo.modiplay.xyz/embed/tmdb/tv?id=${id}&s=${s}&e=${e}`,
+    note: 'Hindi • Movies & web series',
+    mobileFriendly: true,
   },
   {
     name: 'AutoEmbed',
@@ -183,6 +192,15 @@ export default function VideoPlayer({
                     }`}
                   >
                     Desktop
+                  </span>
+                )}
+                {isMobile && s.mobileFriendly && (
+                  <span
+                    className={`rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                      serverIndex === i ? 'bg-black/20 text-black/70' : 'bg-emerald-400/15 text-emerald-300'
+                    }`}
+                  >
+                    Mobile
                   </span>
                 )}
               </span>
