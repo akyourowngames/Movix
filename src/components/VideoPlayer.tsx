@@ -44,6 +44,8 @@ const SERVERS: StreamServer[] = [
   },
 ]
 
+const AUTO_EMBED_INDEX = SERVERS.findIndex((server) => server.name === 'AutoEmbed')
+
 interface VideoPlayerProps {
   tmdbId: string
   imdbId?: string
@@ -86,9 +88,8 @@ export default function VideoPlayer({
     const mobile = window.matchMedia('(max-width: 767px)').matches
     setIsMobile(mobile)
     if (!mobile) return
-    const autoEmbedIndex = SERVERS.findIndex((server) => server.name === 'AutoEmbed')
-    if (autoEmbedIndex > 0) {
-      setServerIndex(autoEmbedIndex)
+    if (AUTO_EMBED_INDEX > 0) {
+      setServerIndex(AUTO_EMBED_INDEX)
       setIframeKey((key) => key + 1)
     }
   }, [])
@@ -173,7 +174,18 @@ export default function VideoPlayer({
                   : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white border border-white/10'
               }`}
             >
-              <span className="flex items-center gap-1.5">{s.name}</span>
+              <span className="flex items-center gap-1.5">
+                {s.name}
+                {isMobile && s.name === 'VidSrc' && (
+                  <span
+                    className={`rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                      serverIndex === i ? 'bg-black/20 text-black/70' : 'bg-white/10 text-white/50'
+                    }`}
+                  >
+                    Desktop
+                  </span>
+                )}
+              </span>
             </motion.button>
           )
         })}
@@ -188,6 +200,39 @@ export default function VideoPlayer({
         >
           {currentServer.banner}
         </motion.div>
+      )}
+
+      {/* VidSrc mobile verification gate */}
+      {isMobile && currentServer.name === 'VidSrc' && (
+        <div
+          role="status"
+          className="flex flex-col gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p className="leading-5">
+            <span className="font-semibold">VidSrc is desktop-only.</span> On phones it shows a
+            verification challenge inside the player, which usually blocks playback. Use AutoEmbed,
+            or open VidSrc in a new tab and choose “Request desktop site”.
+          </p>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (AUTO_EMBED_INDEX >= 0) handleServerChange(AUTO_EMBED_INDEX)
+              }}
+              className="min-h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-black transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Use AutoEmbed
+            </button>
+            <a
+              href={getEmbedUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-10 items-center rounded-lg border border-amber-300/30 px-3 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-300/10"
+            >
+              Open VidSrc
+            </a>
+          </div>
+        </div>
       )}
 
       {frameLoaded && !error && (
