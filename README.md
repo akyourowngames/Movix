@@ -1,13 +1,16 @@
-# CineHindi
+# CineHindi — Movie & TV Discovery App
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/akyourowngames/Movix?style=flat-square)
 ![GitHub repo size](https://img.shields.io/github/repo-size/akyourowngames/Movix?style=flat-square)
 ![GitHub stars](https://img.shields.io/github/stars/akyourowngames/Movix?style=flat-square)
 ![Built with TypeScript](https://img.shields.io/badge/built%20with-TypeScript-111827?style=flat-square)
+![Website](https://img.shields.io/website?url=https%3A%2F%2Fcine-hindi.vercel.app&style=flat-square)
 
-> A cinematic movie and series discovery app — guest-first browsing, optional accounts, synced watch history and resume-where-you-left-off.
+> **CineHindi** is a movie and TV series discovery app — browse Bollywood, South Indian, Hollywood, K-dramas, anime and Indian web series, build a watchlist, get personal recommendations, and resume where you left off. Guest-first: no signup needed.
 
-**[Live demo →](https://cine-hindi.vercel.app)**
+**Live site: [cine-hindi.vercel.app](https://cine-hindi.vercel.app)**
+
+_This repository is named Movix; the app itself is called CineHindi._
 
 ![CineHindi homepage](./public/screenshots/home.png)
 
