@@ -11,6 +11,9 @@ export const revalidate = 86400
 
 const GENRE_ROUTES = ['28', '18', '35', '53', '10749', '27']
 
+// Query strings must be XML-escaped inside <loc>; Next does not do this for us.
+const sitemapUrl = (path: string) => `${SITE_URL}${path}`.replace(/&/g, '&amp;')
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
 
@@ -27,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   const categoryRoutes: MetadataRoute.Sitemap = CATEGORIES.map((category) => ({
-    url: `${SITE_URL}${browsePathFor('all', category.id)}`,
+    url: sitemapUrl(browsePathFor('all', category.id)),
     lastModified: now,
     changeFrequency: 'daily',
     priority: category.group === 'spotlight' ? 0.8 : 0.7,
