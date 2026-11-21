@@ -54,6 +54,7 @@ const SERVERS: StreamServer[] = [
 ]
 
 const AUTO_EMBED_INDEX = SERVERS.findIndex((server) => server.name === 'AutoEmbed')
+const MODI_PLAY_INDEX = SERVERS.findIndex((server) => server.name === 'ModiPlay')
 
 interface VideoPlayerProps {
   tmdbId: string
@@ -80,6 +81,7 @@ export default function VideoPlayer({
   const [frameIdentity, setFrameIdentity] = useState(`${tmdbId}:${type}:${season}:${episode}`)
   const [isLocalhost, setIsLocalhost] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [vidsrcHelpDismissed, setVidsrcHelpDismissed] = useState(false)
   const mobileDefaultApplied = useRef(false)
   const prefersReducedMotion = useReducedMotion()
 
@@ -139,6 +141,7 @@ export default function VideoPlayer({
     setLoading(true)
     setError(false)
     setFrameLoaded(false)
+    setVidsrcHelpDismissed(false)
     setIframeKey(prev => prev + 1)
   }
 
@@ -220,35 +223,57 @@ export default function VideoPlayer({
         </motion.div>
       )}
 
-      {/* VidSrc mobile verification gate */}
-      {isMobile && currentServer.name === 'VidSrc' && (
+      {/* VidSrc cookie gate explanation */}
+      {currentServer.name === 'VidSrc' && !vidsrcHelpDismissed && (
         <div
           role="status"
-          className="flex flex-col gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100 sm:flex-row sm:items-center sm:justify-between"
+          aria-live="polite"
+          className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-xs text-amber-100"
         >
-          <p className="leading-5">
-            <span className="font-semibold">VidSrc is desktop-only.</span> On phones it shows a
-            verification challenge inside the player, which usually blocks playback. Use AutoEmbed,
-            or open VidSrc in a new tab and choose “Request desktop site”.
+          <p className="flex items-start gap-2 font-semibold">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            VidSrc requires its own cookies
           </p>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (AUTO_EMBED_INDEX >= 0) handleServerChange(AUTO_EMBED_INDEX)
-              }}
-              className="min-h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-black transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Use AutoEmbed
-            </button>
+          <p className="mt-1.5 leading-5 text-amber-100/80">
+            A website cannot enable cookies for another domain. VidSrc asks for this because your
+            browser is blocking third-party cookies. Click “Continue to VidSrc” inside the player;
+            if it keeps asking, open VidSrc in a new tab (where cookies are first-party), or use
+            AutoEmbed / ModiPlay.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
             <a
               href={getEmbedUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-10 items-center rounded-lg border border-amber-300/30 px-3 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-300/10"
+              className="flex min-h-10 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-black transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              Open VidSrc
+              Open VidSrc in new tab
             </a>
+            {AUTO_EMBED_INDEX >= 0 && (
+              <button
+                type="button"
+                onClick={() => handleServerChange(AUTO_EMBED_INDEX)}
+                className="min-h-10 rounded-lg border border-amber-300/30 px-3 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-300/10"
+              >
+                Use AutoEmbed
+              </button>
+            )}
+            {MODI_PLAY_INDEX >= 0 && (
+              <button
+                type="button"
+                onClick={() => handleServerChange(MODI_PLAY_INDEX)}
+                className="min-h-10 rounded-lg border border-amber-300/30 px-3 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-300/10"
+              >
+                Use ModiPlay
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setVidsrcHelpDismissed(true)}
+              className="min-h-10 rounded-lg px-3 text-xs font-medium text-amber-100/60 transition-colors hover:text-amber-100"
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
