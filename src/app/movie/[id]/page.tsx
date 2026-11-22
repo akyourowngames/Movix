@@ -2,11 +2,18 @@ import type { Metadata } from 'next'
 import { getMovieDetails } from '@/lib/tmdb'
 import { getImageUrl } from '@/lib/catalog'
 import VideoPlayer from '@/components/VideoPlayer'
+import TrailerButton from '@/components/TrailerButton'
 import TrackView from '@/components/TrackView'
-import { Star, Clock, Calendar, Users } from 'lucide-react'
+import { Star, Clock, Calendar, Users, Play } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { SITE_NAME, SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/site'
+import {
+  pickTrailers,
+  pickPrimaryTrailer,
+  trailerEmbedUrl,
+  trailerThumbnail,
+} from '@/lib/trailers'
 
 const trimDescription = (text: string | undefined, fallback: string) => {
   const clean = (text || fallback).replace(/\s+/g, ' ').trim()
@@ -68,6 +75,8 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
 
     const cast = movie.credits?.cast?.slice(0, 6) || []
     const similar = movie.similar?.results?.slice(0, 6) || []
+    const trailers = pickTrailers(movie.videos)
+    const primaryTrailer = pickPrimaryTrailer(trailers, 'en')
 
     interface Genre {
       id: number
@@ -134,6 +143,18 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
                   worstRating: 0,
                 }
               : undefined,
+          ...(primaryTrailer
+            ? {
+                trailer: {
+                  '@type': 'VideoObject',
+                  name: primaryTrailer.name,
+                  description: `Official trailer for ${movie.title}`,
+                  thumbnailUrl: trailerThumbnail(primaryTrailer.key),
+                  uploadDate: primaryTrailer.publishedAt || new Date().toISOString(),
+                  embedUrl: trailerEmbedUrl(primaryTrailer.key, false),
+                },
+              }
+            : {}),
         },
         {
           '@type': 'BreadcrumbList',
@@ -251,6 +272,18 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
               <p className="text-muted-foreground leading-relaxed text-sm md:text-base">No synopsis is available for this movie yet.</p>
             )}
 
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="#player"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-black transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Play className="h-4 w-4 fill-current" />
+                <span className="lang-en">Watch Now</span>
+                <span className="lang-hi">अभी देखें</span>
+              </a>
+              <TrailerButton trailers={trailers} title={movie.title} />
+            </div>
+
             {/* Cast */}
             {cast.length > 0 && (
               <div>
@@ -292,7 +325,9 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
         </div>
 
         {/* Video Player */}
-        <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} type="movie" title={movie.title} />
+        <div id="player" className="scroll-mt-28">
+          <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} type="movie" title={movie.title} />
+        </div>
 
         {/* Similar Movies */}
         {similar.length > 0 && (

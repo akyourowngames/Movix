@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
 }
 
-export const revalidate = 900
+export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   const feed = await getHomeFeed()

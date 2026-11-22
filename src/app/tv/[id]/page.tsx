@@ -1,12 +1,19 @@
 import type { Metadata } from 'next'
 import { getTVDetails } from '@/lib/tmdb'
 import { getImageUrl } from '@/lib/catalog'
-import { Star, Calendar, Users, Tv } from 'lucide-react'
+import { Star, Calendar, Users, Tv, Play } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import SeasonSelector from './SeasonSelector'
+import TrailerButton from '@/components/TrailerButton'
 import TrackView from '@/components/TrackView'
 import { SITE_NAME, SITE_URL, absoluteUrl, serializeJsonLd } from '@/lib/site'
+import {
+  pickTrailers,
+  pickPrimaryTrailer,
+  trailerEmbedUrl,
+  trailerThumbnail,
+} from '@/lib/trailers'
 
 const trimDescription = (text: string | undefined, fallback: string) => {
   const clean = (text || fallback).replace(/\s+/g, ' ').trim()
@@ -69,6 +76,8 @@ export default async function TVPage({ params }: { params: { id: string } }) {
 
     const cast = show.credits?.cast?.slice(0, 6) || []
     const similar = show.similar?.results?.slice(0, 6) || []
+    const trailers = pickTrailers(show.videos)
+    const primaryTrailer = pickPrimaryTrailer(trailers, 'en')
 
     interface Genre {
       id: number
@@ -131,6 +140,18 @@ export default async function TVPage({ params }: { params: { id: string } }) {
                   worstRating: 0,
                 }
               : undefined,
+          ...(primaryTrailer
+            ? {
+                trailer: {
+                  '@type': 'VideoObject',
+                  name: primaryTrailer.name,
+                  description: `Official trailer for ${show.name}`,
+                  thumbnailUrl: trailerThumbnail(primaryTrailer.key),
+                  uploadDate: primaryTrailer.publishedAt || new Date().toISOString(),
+                  embedUrl: trailerEmbedUrl(primaryTrailer.key, false),
+                },
+              }
+            : {}),
         },
         {
           '@type': 'BreadcrumbList',
@@ -247,6 +268,18 @@ export default async function TVPage({ params }: { params: { id: string } }) {
 
             <p className="text-white/80 leading-relaxed text-sm md:text-base">{show.overview || 'No synopsis is available for this series yet.'}</p>
 
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="#player"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-bold text-black transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Play className="h-4 w-4 fill-current" />
+                <span className="lang-en">Watch Now</span>
+                <span className="lang-hi">अभी देखें</span>
+              </a>
+              <TrailerButton trailers={trailers} title={show.name} />
+            </div>
+
             {/* Cast */}
             {cast.length > 0 && (
               <div>
@@ -288,12 +321,14 @@ export default async function TVPage({ params }: { params: { id: string } }) {
         </div>
 
         {/* Season & Episode Selector + Video Player */}
-        <SeasonSelector 
-          tmdbId={params.id}
-          imdbId={show.external_ids?.imdb_id}
-          seasons={show.seasons || []}
-          showTitle={show.name}
-        />
+        <div id="player" className="scroll-mt-28">
+          <SeasonSelector
+            tmdbId={params.id}
+            imdbId={show.external_ids?.imdb_id}
+            seasons={show.seasons || []}
+            showTitle={show.name}
+          />
+        </div>
 
         {/* Similar Shows */}
         {similar.length > 0 && (

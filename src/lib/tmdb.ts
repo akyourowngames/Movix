@@ -171,7 +171,7 @@ export const getMovieDetails = cache(async (tmdbId: string) => {
   if (!/^\d{1,9}$/.test(tmdbId)) return { success: false, status_code: 34 }
 
   const res = await fetchTMDB(
-    `${BASE}/movie/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar`,
+    `${BASE}/movie/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar,videos`,
     3600
   )
 
@@ -244,7 +244,7 @@ export const getTVDetails = cache(async (tmdbId: string) => {
   if (!/^\d{1,9}$/.test(tmdbId)) return { success: false, status_code: 34 }
 
   const res = await fetchTMDB(
-    `${BASE}/tv/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar`,
+    `${BASE}/tv/${tmdbId}?api_key=${KEY}&append_to_response=external_ids,credits,similar,videos`,
     3600
   )
 
