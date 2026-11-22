@@ -16,6 +16,7 @@ import {
   type MediaType,
   type ScorableItem,
 } from '@/lib/recommend'
+import { rateLimit } from '@/lib/rateLimit'
 
 const SEED_RE = /^(movie|tv):(\d{1,9})$/
 
@@ -32,6 +33,9 @@ const respond = (
 const invalid = () => respond({ results: [], error: 'invalid_params' }, 400, 'no-store')
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, 'recommend', 60, 60_000)
+  if (limited) return limited
+
   const params = request.nextUrl.searchParams
   const rawSeeds = (params.get('seeds') || '').split(',').map((s) => s.trim()).filter(Boolean)
   const rawGenres = (params.get('genres') || '').split(',').map((s) => s.trim()).filter(Boolean)

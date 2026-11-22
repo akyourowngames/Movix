@@ -29,7 +29,7 @@ export default function ResetPasswordForm() {
   const strength = useMemo(() => {
     if (!password) return 0
     let score = 0
-    if (password.length >= 6) score += 1
+    if (password.length >= 8) score += 1
     if (password.length >= 10) score += 1
     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1
     if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1
@@ -40,8 +40,8 @@ export default function ResetPasswordForm() {
     event.preventDefault()
     setError(null)
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
       return
     }
     if (password !== confirmation) {
@@ -142,7 +142,7 @@ export default function ResetPasswordForm() {
                 data-lpignore="true"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 className="h-12 w-full rounded-lg border border-white/15 bg-black/30 pl-11 pr-12 text-sm text-white outline-none transition-colors placeholder:text-white/40 hover:border-white/25 focus:border-primary focus:ring-2 focus:ring-primary/25"
               />
               <button

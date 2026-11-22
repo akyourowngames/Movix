@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,9 @@ const parseYear = (value: string | null) => {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, 'subtitles', 60, 60_000)
+  if (limited) return limited
+
   const params = request.nextUrl.searchParams
   const imdbId = String(params.get('imdbId') || '').trim()
   const type = params.get('type') === 'movie' ? 'movie' : 'tv'

@@ -315,8 +315,8 @@ export default function AccountClient() {
     setPasswordError(null)
     setPasswordMessage(null)
 
-    if (password.length < 6) {
-      setPasswordError('Password must be at least 6 characters.')
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.')
       return
     }
     if (password !== passwordConfirmation) {
@@ -685,7 +685,7 @@ export default function AccountClient() {
                       data-lpignore="true"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder="At least 6 characters"
+                      placeholder="At least 8 characters"
                       className={`${inputClass} pl-11 pr-12`}
                     />
                     <button
@@ -735,7 +735,7 @@ export default function AccountClient() {
                   Update password
                 </button>
                 <span className="text-xs text-white/35">
-                  Password must be at least 6 characters.
+                  Password must be at least 8 characters.
                 </span>
               </div>
               {passwordError && <Notice kind="error">{passwordError}</Notice>}

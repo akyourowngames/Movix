@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCatalogPage } from '@/lib/catalogQuery'
 import { parseCategoryMedia } from '@/lib/categories'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, 'catalog', 120, 60_000)
+  if (limited) return limited
+
   const params = request.nextUrl.searchParams
   const type = parseCategoryMedia(params.get('type'), 'movie')
   const result = await getCatalogPage({

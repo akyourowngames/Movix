@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSeasonEpisodes } from '@/lib/tmdb'
+import { rateLimit } from '@/lib/rateLimit'
 
 interface EpisodeLike {
   id: number
@@ -13,6 +14,9 @@ interface EpisodeLike {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, 'season', 120, 60_000)
+  if (limited) return limited
+
   const params = request.nextUrl.searchParams
   const tvId = params.get('tv')
   const seasonParam = params.get('season')

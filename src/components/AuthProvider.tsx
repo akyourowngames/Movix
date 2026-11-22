@@ -61,7 +61,7 @@ export const friendlyAuthError = (message: string) => {
     return 'An account with this email already exists. Try signing in.'
   }
   if (/password should be at least/i.test(message)) {
-    return 'Password must be at least 6 characters.'
+    return 'Password must be at least 8 characters.'
   }
   if (/new password should be different/i.test(message)) {
     return 'Choose a password different from your current one.'

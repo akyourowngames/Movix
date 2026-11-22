@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMovieDetails, getTVDetails, getSeasonEpisodes } from '@/lib/tmdb'
 import { getTatakaiStream } from '@/lib/tatakai'
+import { rateLimit } from '@/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,9 @@ const parseYear = (value?: string) => {
 }
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, 'tatakai', 30, 60_000)
+  if (limited) return limited
+
   const params = request.nextUrl.searchParams
   const type = params.get('type') === 'tv' ? 'tv' : 'movie'
   const tmdbId = params.get('tmdbId') || ''

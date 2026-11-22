@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { rateLimit } from '@/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -41,8 +42,17 @@ const safePath = (value: unknown) => {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, 'pulse', 180, 60_000)
+  if (limited) return limited
+
   const userAgent = request.headers.get('user-agent') || ''
   if (BOT_PATTERN.test(userAgent)) {
+    return new NextResponse(null, { status: 204 })
+  }
+
+  // Browser-issued same-origin pings only; block cross-site form/fetch spam.
+  const fetchSite = request.headers.get('sec-fetch-site')
+  if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'same-site') {
     return new NextResponse(null, { status: 204 })
   }
 

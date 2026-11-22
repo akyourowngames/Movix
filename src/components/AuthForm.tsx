@@ -99,7 +99,7 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
   const strength = useMemo(() => {
     if (!password) return 0
     let score = 0
-    if (password.length >= 6) score += 1
+    if (password.length >= 8) score += 1
     if (password.length >= 10) score += 1
     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1
     if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1
@@ -110,6 +110,12 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
     event.preventDefault()
     setError(null)
     setInfo(null)
+
+    if (!isLogin && password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+
     setSubmitting(true)
 
     const params = new URLSearchParams(window.location.search)
@@ -356,7 +362,7 @@ export default function AuthForm({ mode }: { mode: AuthMode }) {
                         {...noAutofill}
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
-                        placeholder={isLogin ? 'Enter your password' : 'At least 6 characters'}
+                        placeholder={isLogin ? 'Enter your password' : 'At least 8 characters'}
                         aria-describedby={!isLogin && password ? 'password-strength' : undefined}
                         className={passwordInputClass}
                       />

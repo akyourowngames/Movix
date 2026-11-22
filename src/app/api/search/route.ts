@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { searchCatalog, type TMDBMovie, type TitleLanguage } from '@/lib/tmdb'
 import { toCatalogItem } from '@/lib/catalog'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, 'search', 60, 60_000)
+  if (limited) return limited
+
   const params = request.nextUrl.searchParams
   const query = (params.get('q') || '').trim()
   const type = params.get('type') === 'tv' ? 'tv' : params.get('type') === 'movie' ? 'movie' : 'both'
