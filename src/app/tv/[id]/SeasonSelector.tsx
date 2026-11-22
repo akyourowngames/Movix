@@ -32,11 +32,12 @@ interface SeasonSelectorProps {
   imdbId?: string
   seasons: Season[]
   showTitle: string
+  isAnime?: boolean
 }
 
 const episodeCache = new Map<string, Episode[]>()
 
-export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: SeasonSelectorProps) {
+export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isAnime = false }: SeasonSelectorProps) {
   // Filter out season 0 (specials) and sort
   const validSeasons = seasons
     .filter(s => s.season_number > 0)
@@ -51,7 +52,6 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
   const [showSeasonDropdown, setShowSeasonDropdown] = useState(false)
   const [activeSeason, setActiveSeason] = useState(validSeasons[0]?.season_number || 1)
   const [showEpisodeList, setShowEpisodeList] = useState(false)
-  const [resumeReady, setResumeReady] = useState(false)
   const resumeBySeason = useRef(new Map<number, number>())
   const resumeResolved = useRef(false)
   const seasonPickerRef = useRef<HTMLDivElement>(null)
@@ -78,6 +78,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
   }
 
   const selectSeason = (seasonNumber: number) => {
+    if (seasonNumber !== selectedSeason) setLoading(true)
     setSelectedSeason(seasonNumber)
     closeSeasonDropdown(true)
   }
@@ -166,7 +167,6 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
       resumeBySeason.current.set(seasonParam, Number.isFinite(episodeParam) && episodeParam > 0 ? episodeParam : 1)
       setSelectedSeason(seasonParam)
       if (Number.isFinite(episodeParam) && episodeParam > 0) setSelectedEpisode(episodeParam)
-      setResumeReady(true)
       return
     }
 
@@ -174,7 +174,6 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
 
     if (!user) {
       resumeResolved.current = true
-      setResumeReady(true)
       return
     }
 
@@ -193,9 +192,6 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
       .catch(() => {
         // Resume is best-effort; start from the first episode on failure.
       })
-      .finally(() => {
-        if (!cancelled) setResumeReady(true)
-      })
 
     return () => {
       cancelled = true
@@ -210,12 +206,13 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
     if (cached) {
       setEpisodes(cached)
       const resumeAt = resumeBySeason.current.get(selectedSeason)
-      if (resumeAt) {
-        resumeBySeason.current.delete(selectedSeason)
-        setSelectedEpisode(resumeAt)
-      } else {
-        setSelectedEpisode(1)
-      }
+      if (resumeAt) resumeBySeason.current.delete(selectedSeason)
+      const firstEpisode = cached[0]?.episode_number ?? 1
+      setSelectedEpisode(
+        resumeAt && cached.some((episode) => episode.episode_number === resumeAt)
+          ? resumeAt
+          : firstEpisode
+      )
       setLoading(false)
       return
     }
@@ -236,12 +233,13 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
         setEpisodes(results)
         setEpisodeError(false)
         const resumeAt = resumeBySeason.current.get(selectedSeason)
-        if (resumeAt) {
-          resumeBySeason.current.delete(selectedSeason)
-          setSelectedEpisode(resumeAt)
-        } else {
-          setSelectedEpisode(1) // Reset to first episode
-        }
+        if (resumeAt) resumeBySeason.current.delete(selectedSeason)
+        const firstEpisode = results[0]?.episode_number ?? 1
+        setSelectedEpisode(
+          resumeAt && results.some((episode) => episode.episode_number === resumeAt)
+            ? resumeAt
+            : firstEpisode
+        )
         setLoading(false)
       })
       .catch((err) => {
@@ -457,7 +455,38 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
       )}
 
       {/* Video Player */}
-      {resumeReady ? (
+      {loading ? (
+        <div
+          className="aspect-video w-full flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-white/10 border-t-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">Loading episodes…</p>
+        </div>
+      ) : episodeError ? (
+        <div
+          className="aspect-video w-full flex flex-col items-center justify-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-8 text-center"
+          role="alert"
+        >
+          <p className="text-sm text-muted-foreground">
+            Episodes could not be loaded. Check your connection and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              episodeCache.delete(`${tmdbId}:${selectedSeason}`)
+              setEpisodeError(false)
+              setLoading(true)
+              setEpisodes([])
+              setEpisodeRetryKey((key) => key + 1)
+            }}
+            className="min-h-11 rounded-lg border border-white/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Retry
+          </button>
+        </div>
+      ) : episodes.length > 0 ? (
         <VideoPlayer
           tmdbId={tmdbId}
           imdbId={imdbId}
@@ -465,9 +494,15 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle }: S
           season={selectedSeason}
           episode={selectedEpisode}
           title={`${showTitle} - S${selectedSeason}E${selectedEpisode}`}
+          isAnime={isAnime}
         />
       ) : (
-        <div className="aspect-video w-full animate-pulse rounded-2xl border border-white/10 bg-white/5" />
+        <div
+          className="aspect-video w-full flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-sm text-muted-foreground"
+          role="status"
+        >
+          No episodes are listed for this season.
+        </div>
       )}
     </div>
   )

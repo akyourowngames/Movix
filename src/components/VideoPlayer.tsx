@@ -13,7 +13,8 @@ interface StreamServer {
   banner?: string
   requiresImdb?: boolean
   mobileFriendly?: boolean
-  kind?: 'iframe' | 'hls'
+  animeOnly?: boolean
+  kind?: 'iframe' | 'resolver'
   languages: ('hi' | 'en')[]
   movie: (tmdbId: string, imdbId?: string) => string
   tv: (tmdbId: string, season: number, episode: number, imdbId?: string) => string
@@ -27,9 +28,11 @@ const cinezo = (path: string) => `https://player.cinezo.live/embed/${path}?${CIN
 const SERVERS: StreamServer[] = [
   {
     name: 'VidSrc',
-    movie: (id: string) => `https://vidsrc.to/embed/movie/${id}`,
-    tv: (id: string, s: number, e: number) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
-    note: 'Hindi + English • Hollywood & Bollywood',
+    movie: (_id: string, imdbId?: string) => `https://vidsrc.sh/embed/movie/${encodeURIComponent(imdbId || '')}`,
+    tv: (_id: string, s: number, e: number, imdbId?: string) =>
+      `https://vidsrc.sh/embed/tv/${encodeURIComponent(imdbId || '')}/${s}/${e}`,
+    note: 'Hindi + English • Movies & web series',
+    requiresImdb: true,
     languages: ['hi', 'en'],
   },
   {
@@ -73,20 +76,21 @@ const SERVERS: StreamServer[] = [
     languages: ['en'],
   },
   {
-    name: 'Tatakai Anime',
-    kind: 'hls',
+    name: 'Anime Hindi',
+    kind: 'resolver',
+    animeOnly: true,
     movie: (id: string) =>
-      `/api/tatakai?type=movie&tmdbId=${encodeURIComponent(id)}`,
+      `/api/anime-hindi?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1`,
     tv: (id: string, s: number, e: number) =>
-      `/api/tatakai?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}`,
-    note: 'Anime only • HLS/MP4 • EN/HI subtitles',
-    languages: ['en'],
+      `/api/anime-hindi?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}`,
+    note: 'Anime only • Hindi dub • Auto-failover: Hindidub → HDAnime',
+    banner: '🇮🇳 Anime Hindi — auto-picks a working Hindi-dub source (Hindidub, then HDAnime).',
+    languages: ['hi'],
     mobileFriendly: true,
   },
 ]
 
 const AUTO_EMBED_INDEX = SERVERS.findIndex((server) => server.name === 'AutoEmbed')
-const MODI_PLAY_INDEX = SERVERS.findIndex((server) => server.name === 'ModiPlay')
 
 interface VideoPlayerProps {
   tmdbId: string
@@ -95,6 +99,7 @@ interface VideoPlayerProps {
   season?: number
   episode?: number
   title?: string
+  isAnime?: boolean
 }
 
 export default function VideoPlayer({
@@ -104,8 +109,12 @@ export default function VideoPlayer({
   season = 1,
   episode = 1,
   title,
+  isAnime = false,
 }: VideoPlayerProps) {
-  const [serverIndex, setServerIndex] = useState(0)
+  const initialServerIndex = SERVERS.findIndex(
+    (server) => (!server.animeOnly || isAnime) && (!server.requiresImdb || Boolean(imdbId))
+  )
+  const [serverIndex, setServerIndex] = useState(initialServerIndex >= 0 ? initialServerIndex : 0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [frameLoaded, setFrameLoaded] = useState(false)
@@ -113,20 +122,20 @@ export default function VideoPlayer({
   const [frameIdentity, setFrameIdentity] = useState(`${tmdbId}:${type}:${season}:${episode}`)
   const [isLocalhost, setIsLocalhost] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  const [vidsrcHelpDismissed, setVidsrcHelpDismissed] = useState(false)
-  const [hlsSrc, setHlsSrc] = useState<string | null>(null)
-  const [hlsIsHls, setHlsIsHls] = useState(true)
+  const [resolved, setResolved] = useState<{
+    src: string
+    mode: 'hls' | 'file' | 'iframe'
+    provider: string
+    server: string
+    verified: boolean
+    subtitleSrc?: string
+  } | null>(null)
   const mobileDefaultApplied = useRef(false)
   const prefersReducedMotion = useReducedMotion()
   const { language } = useLanguage()
 
   const currentServer = SERVERS[serverIndex]
-  const isHlsServer = currentServer.kind === 'hls'
-  const subtitleSrc =
-    isHlsServer && imdbId
-      ? `/api/tatakai/subtitles?imdbId=${encodeURIComponent(imdbId)}&type=${type}&season=${season}&episode=${episode}&lang=${language}`
-      : undefined
-  const subtitleLabel = 'Subtitles'
+  const isResolver = currentServer.kind === 'resolver'
 
   // Check if running on localhost (client-side only)
   useEffect(() => {
@@ -157,8 +166,8 @@ export default function VideoPlayer({
   }, [currentFrameIdentity, frameIdentity])
 
   useEffect(() => {
-    if (!isHlsServer) {
-      setHlsSrc(null)
+    if (!isResolver) {
+      setResolved(null)
       return
     }
 
@@ -169,13 +178,12 @@ export default function VideoPlayer({
         ? currentServer.tv(tmdbId, season, episode, imdbId)
         : currentServer.movie(tmdbId, imdbId)
 
-    setHlsSrc(null)
-    setHlsIsHls(true)
+    setResolved(null)
     setLoading(true)
     setError(false)
     setFrameLoaded(false)
 
-    fetch(resolverUrl, { signal: controller.signal })
+    fetch(resolverUrl, { cache: 'no-store', signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error('Stream resolver failed')
         return response.json()
@@ -183,10 +191,19 @@ export default function VideoPlayer({
       .then((data) => {
         if (cancelled) return
         if (!data?.url) throw new Error('No stream returned')
-        setHlsSrc(String(data.url))
-        setHlsIsHls(data.isHls !== false)
-        setLoading(false)
-        setFrameLoaded(true)
+        const mode = data.mode === 'hls' || data.mode === 'file' ? data.mode : 'iframe'
+        setResolved({
+          src: String(data.url),
+          mode,
+          provider: String(data.provider || ''),
+          server: String(data.server || ''),
+          verified: Boolean(data.verified),
+          subtitleSrc: data.subtitleSrc ? String(data.subtitleSrc) : undefined,
+        })
+        if (mode !== 'iframe') {
+          setLoading(false)
+          setFrameLoaded(true)
+        }
       })
       .catch((err) => {
         if (cancelled || err?.name === 'AbortError') return
@@ -198,7 +215,7 @@ export default function VideoPlayer({
       cancelled = true
       controller.abort()
     }
-  }, [isHlsServer, currentServer, serverIndex, tmdbId, imdbId, type, season, episode, iframeKey])
+  }, [isResolver, currentServer, serverIndex, tmdbId, imdbId, type, season, episode, iframeKey])
 
   useEffect(() => {
     recordPlayback({
@@ -211,7 +228,7 @@ export default function VideoPlayer({
   }, [tmdbId, type, season, episode, title])
 
   const isAvailable = (server: StreamServer) =>
-    !server.requiresImdb || Boolean(imdbId)
+    (!server.animeOnly || isAnime) && (!server.requiresImdb || Boolean(imdbId))
 
   const getEmbedUrl = () => {
     if (type === 'tv') {
@@ -220,17 +237,28 @@ export default function VideoPlayer({
     return currentServer.movie(tmdbId, imdbId)
   }
 
+  const iframeSrc = isResolver
+    ? resolved?.mode === 'iframe'
+      ? resolved.src
+      : null
+    : getEmbedUrl()
+  const streamSrc = isResolver && resolved && resolved.mode !== 'iframe' ? resolved.src : null
+  const streamMode = resolved?.mode === 'file' ? 'file' : 'hls'
+  const externalUrl = isResolver ? resolved?.src || '' : getEmbedUrl()
+  const isStreamMode = Boolean(streamSrc)
+
   const handleServerChange = (index: number) => {
     if (index === serverIndex) return
     setServerIndex(index)
+    setResolved(null)
     setLoading(true)
     setError(false)
     setFrameLoaded(false)
-    setVidsrcHelpDismissed(false)
     setIframeKey(prev => prev + 1)
   }
 
   const handleRetry = () => {
+    setResolved(null)
     setLoading(true)
     setError(false)
     setFrameLoaded(false)
@@ -295,15 +323,6 @@ export default function VideoPlayer({
                     </span>
                   ))}
                 </span>
-                {isMobile && s.name === 'VidSrc' && (
-                  <span
-                    className={`rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
-                      serverIndex === i ? 'bg-black/20 text-black/70' : 'bg-white/10 text-white/50'
-                    }`}
-                  >
-                    Desktop
-                  </span>
-                )}
                 {isMobile && s.mobileFriendly && (
                   <span
                     className={`rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
@@ -330,66 +349,13 @@ export default function VideoPlayer({
         </motion.div>
       )}
 
-      {/* VidSrc cookie gate explanation */}
-      {currentServer.name === 'VidSrc' && !vidsrcHelpDismissed && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-xs text-amber-100"
-        >
-          <p className="flex items-start gap-2 font-semibold">
-            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            VidSrc requires its own cookies
-          </p>
-          <p className="mt-1.5 leading-5 text-amber-100/80">
-            A website cannot enable cookies for another domain. VidSrc asks for this because your
-            browser is blocking third-party cookies. Click “Continue to VidSrc” inside the player;
-            if it keeps asking, open VidSrc in a new tab (where cookies are first-party), or use
-            AutoEmbed / ModiPlay.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <a
-              href={getEmbedUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex min-h-10 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-black transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Open VidSrc in new tab
-            </a>
-            {AUTO_EMBED_INDEX >= 0 && (
-              <button
-                type="button"
-                onClick={() => handleServerChange(AUTO_EMBED_INDEX)}
-                className="min-h-10 rounded-lg border border-amber-300/30 px-3 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-300/10"
-              >
-                Use AutoEmbed
-              </button>
-            )}
-            {MODI_PLAY_INDEX >= 0 && (
-              <button
-                type="button"
-                onClick={() => handleServerChange(MODI_PLAY_INDEX)}
-                className="min-h-10 rounded-lg border border-amber-300/30 px-3 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-300/10"
-              >
-                Use ModiPlay
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setVidsrcHelpDismissed(true)}
-              className="min-h-10 rounded-lg px-3 text-xs font-medium text-amber-100/60 transition-colors hover:text-amber-100"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
       {frameLoaded && !error && (
         <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
-          {isHlsServer
-            ? `Stream resolved from ${currentServer.name}. Playback is handled in-app.`
-            : `Provider page loaded. Playback availability and controls are managed by ${currentServer.name}.`}
+          {isStreamMode
+            ? `Stream resolved from ${currentServer.name}${resolved?.provider ? ` via ${resolved.provider}` : ''}. Playback is handled in-app.`
+            : resolved?.provider
+              ? `Player loaded from ${resolved.provider}${resolved.server ? ` (${resolved.server})` : ''}.`
+              : `Provider page loaded. Playback availability and controls are managed by ${currentServer.name}.`}
         </p>
       )}
 
@@ -449,9 +415,9 @@ export default function VideoPlayer({
                 <Wifi className="w-4 h-4" />
                 Try Next Server
               </motion.button>
-              {!isHlsServer && (
+              {externalUrl && (
                 <a
-                  href={getEmbedUrl()}
+                  href={externalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex min-h-11 items-center justify-center rounded-lg border border-white/20 px-4 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -463,26 +429,24 @@ export default function VideoPlayer({
           </div>
         )}
 
-        {isHlsServer ? (
-          hlsSrc ? (
-            <HLSPlayer
-              key={`hls-${serverIndex}-${iframeKey}-${frameIdentity}`}
-              src={hlsSrc}
-              title={title}
-              sourceType={hlsIsHls ? 'hls' : 'file'}
-              subtitleSrc={subtitleSrc}
-              subtitleLabel={subtitleLabel}
-              subtitleLang={language}
-              onError={() => {
-                setLoading(false)
-                setError(true)
-              }}
-            />
-          ) : null
-        ) : (
+        {streamSrc ? (
+          <HLSPlayer
+            key={`hls-${serverIndex}-${iframeKey}-${frameIdentity}`}
+            src={streamSrc}
+            title={title}
+            sourceType={streamMode}
+            subtitleSrc={resolved?.subtitleSrc}
+            subtitleLabel="Subtitles"
+            subtitleLang={language}
+            onError={() => {
+              setLoading(false)
+              setError(true)
+            }}
+          />
+        ) : iframeSrc ? (
           <iframe
             key={`player-${serverIndex}-${iframeKey}-${frameIdentity}`}
-            src={getEmbedUrl()}
+            src={iframeSrc}
             title={title ? `Video player for ${title}` : `Video player from ${currentServer.name}`}
             className={`w-full h-full transition-opacity duration-500 ${
               loading || error ? 'opacity-0' : 'opacity-100'
@@ -501,7 +465,7 @@ export default function VideoPlayer({
               setFrameLoaded(false)
             }}
           />
-        )}
+        ) : null}
       </div>
 
       {/* Info Bar */}
@@ -512,6 +476,13 @@ export default function VideoPlayer({
             Provider: <span className="text-primary font-medium">{currentServer.name}</span>
             {' '}— {currentServer.note}
           </p>
+          {isResolver && resolved?.provider && (
+            <p>
+              Source: <span className="text-primary">{resolved.provider}</span>
+              {resolved.server ? ` — ${resolved.server}` : ''}
+              {resolved.verified ? ' • verified reachable' : ' • auto-selected'}
+            </p>
+          )}
           <p>
             Languages:{' '}
             {currentServer.languages
@@ -523,13 +494,14 @@ export default function VideoPlayer({
           </p>
           {isMobile && (
             <p className="text-amber-200/90">
-              On phones, AutoEmbed is usually the most reliable. If a server says it is
-              unreachable, switch servers or open this server in a new tab.
+              {isAnime
+                ? 'On phones, Anime Hindi is the preferred Hindi-dub source. If it fails, try AutoEmbed.'
+                : 'On phones, AutoEmbed is usually the most reliable. If a server says it is unreachable, switch servers or open this server in a new tab.'}
             </p>
           )}
-          {!isHlsServer && (
+          {externalUrl && (
             <a
-              href={getEmbedUrl()}
+              href={externalUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex text-primary underline-offset-4 hover:underline"

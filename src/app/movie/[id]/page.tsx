@@ -103,6 +103,7 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
       : null
 
     const genres = movie.genres || []
+    const isAnime = movie.original_language === 'ja' && genres.some((genre: Genre) => genre.id === 16)
     const poster = movie.poster_path ? getImageUrl(movie.poster_path, 'w500') : undefined
     const backdrop = movie.backdrop_path ? getImageUrl(movie.backdrop_path, 'w1280') : undefined
     const directors = (movie.credits?.crew || [])
@@ -326,7 +327,7 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
 
         {/* Video Player */}
         <div id="player" className="scroll-mt-28">
-          <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} type="movie" title={movie.title} />
+          <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} type="movie" title={movie.title} isAnime={isAnime} />
         </div>
 
         {/* Similar Movies */}

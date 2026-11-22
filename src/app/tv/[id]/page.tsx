@@ -104,6 +104,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
       : null
 
     const genres = show.genres || []
+    const isAnime = show.original_language === 'ja' && genres.some((genre: Genre) => genre.id === 16)
     const poster = show.poster_path ? getImageUrl(show.poster_path, 'w500') : undefined
     const backdrop = show.backdrop_path ? getImageUrl(show.backdrop_path, 'w1280') : undefined
 
@@ -327,6 +328,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
             imdbId={show.external_ids?.imdb_id}
             seasons={show.seasons || []}
             showTitle={show.name}
+            isAnime={isAnime}
           />
         </div>
 
