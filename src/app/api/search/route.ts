@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchCatalog, type TMDBMovie } from '@/lib/tmdb'
+import { searchCatalog, type TMDBMovie, type TitleLanguage } from '@/lib/tmdb'
 import { toCatalogItem } from '@/lib/catalog'
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const query = (params.get('q') || '').trim()
   const type = params.get('type') === 'tv' ? 'tv' : params.get('type') === 'movie' ? 'movie' : 'both'
+  const lang: TitleLanguage = params.get('lang') === 'hi' ? 'hi' : 'en'
 
   if (query.length < 2) {
     return NextResponse.json({ results: [] })
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const requested = type === 'tv' ? ['tv'] : type === 'movie' ? ['movie'] : ['movie', 'tv']
   const responses = await Promise.all(
-    requested.map((media) => searchCatalog(media as 'movie' | 'tv', query))
+    requested.map((media) => searchCatalog(media as 'movie' | 'tv', query, lang))
   )
 
   const successful = responses.filter((response) => response.ok)

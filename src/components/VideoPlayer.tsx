@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { RefreshCw, Wifi, WifiOff, Info } from 'lucide-react'
 import { recordPlayback } from '@/lib/profileActions'
+import HLSPlayer from '@/components/HLSPlayer'
+import { useLanguage } from '@/components/LanguageProvider'
 
 interface StreamServer {
   name: string
@@ -11,6 +13,7 @@ interface StreamServer {
   banner?: string
   requiresImdb?: boolean
   mobileFriendly?: boolean
+  kind?: 'iframe' | 'hls'
   languages: ('hi' | 'en')[]
   movie: (tmdbId: string, imdbId?: string) => string
   tv: (tmdbId: string, season: number, episode: number, imdbId?: string) => string
@@ -69,6 +72,17 @@ const SERVERS: StreamServer[] = [
     note: 'English only',
     languages: ['en'],
   },
+  {
+    name: 'Tatakai Anime',
+    kind: 'hls',
+    movie: (id: string) =>
+      `/api/tatakai?type=movie&tmdbId=${encodeURIComponent(id)}`,
+    tv: (id: string, s: number, e: number) =>
+      `/api/tatakai?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}`,
+    note: 'Anime only • HLS/MP4 • EN/HI subtitles',
+    languages: ['en'],
+    mobileFriendly: true,
+  },
 ]
 
 const AUTO_EMBED_INDEX = SERVERS.findIndex((server) => server.name === 'AutoEmbed')
@@ -100,10 +114,19 @@ export default function VideoPlayer({
   const [isLocalhost, setIsLocalhost] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [vidsrcHelpDismissed, setVidsrcHelpDismissed] = useState(false)
+  const [hlsSrc, setHlsSrc] = useState<string | null>(null)
+  const [hlsIsHls, setHlsIsHls] = useState(true)
   const mobileDefaultApplied = useRef(false)
   const prefersReducedMotion = useReducedMotion()
+  const { language } = useLanguage()
 
   const currentServer = SERVERS[serverIndex]
+  const isHlsServer = currentServer.kind === 'hls'
+  const subtitleSrc =
+    isHlsServer && imdbId
+      ? `/api/tatakai/subtitles?imdbId=${encodeURIComponent(imdbId)}&type=${type}&season=${season}&episode=${episode}&lang=${language}`
+      : undefined
+  const subtitleLabel = 'Subtitles'
 
   // Check if running on localhost (client-side only)
   useEffect(() => {
@@ -132,6 +155,50 @@ export default function VideoPlayer({
     setError(false)
     setFrameLoaded(false)
   }, [currentFrameIdentity, frameIdentity])
+
+  useEffect(() => {
+    if (!isHlsServer) {
+      setHlsSrc(null)
+      return
+    }
+
+    const controller = new AbortController()
+    let cancelled = false
+    const resolverUrl =
+      type === 'tv'
+        ? currentServer.tv(tmdbId, season, episode, imdbId)
+        : currentServer.movie(tmdbId, imdbId)
+
+    setHlsSrc(null)
+    setHlsIsHls(true)
+    setLoading(true)
+    setError(false)
+    setFrameLoaded(false)
+
+    fetch(resolverUrl, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error('Stream resolver failed')
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled) return
+        if (!data?.url) throw new Error('No stream returned')
+        setHlsSrc(String(data.url))
+        setHlsIsHls(data.isHls !== false)
+        setLoading(false)
+        setFrameLoaded(true)
+      })
+      .catch((err) => {
+        if (cancelled || err?.name === 'AbortError') return
+        setLoading(false)
+        setError(true)
+      })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [isHlsServer, currentServer, serverIndex, tmdbId, imdbId, type, season, episode, iframeKey])
 
   useEffect(() => {
     recordPlayback({
@@ -320,7 +387,9 @@ export default function VideoPlayer({
 
       {frameLoaded && !error && (
         <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
-          Provider page loaded. Playback availability and controls are managed by {currentServer.name}.
+          {isHlsServer
+            ? `Stream resolved from ${currentServer.name}. Playback is handled in-app.`
+            : `Provider page loaded. Playback availability and controls are managed by ${currentServer.name}.`}
         </p>
       )}
 
@@ -380,40 +449,59 @@ export default function VideoPlayer({
                 <Wifi className="w-4 h-4" />
                 Try Next Server
               </motion.button>
-              <a
-                href={getEmbedUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-11 items-center justify-center rounded-lg border border-white/20 px-4 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                Open in new tab
-              </a>
+              {!isHlsServer && (
+                <a
+                  href={getEmbedUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-11 items-center justify-center rounded-lg border border-white/20 px-4 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Open in new tab
+                </a>
+              )}
             </div>
           </div>
         )}
 
-        {/* The Iframe - Render immediately */}
-        <iframe
-          key={`player-${serverIndex}-${iframeKey}-${frameIdentity}`}
-          src={getEmbedUrl()}
-          title={title ? `Video player for ${title}` : `Video player from ${currentServer.name}`}
-          className={`w-full h-full transition-opacity duration-500 ${
-            loading || error ? 'opacity-0' : 'opacity-100'
-          }`}
-          allowFullScreen
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          referrerPolicy="origin"
-          onLoad={() => {
-            setLoading(false)
-            setError(false)
-            setFrameLoaded(true)
-          }}
-          onError={() => {
-            setLoading(false)
-            setError(true)
-            setFrameLoaded(false)
-          }}
-        />
+        {isHlsServer ? (
+          hlsSrc ? (
+            <HLSPlayer
+              key={`hls-${serverIndex}-${iframeKey}-${frameIdentity}`}
+              src={hlsSrc}
+              title={title}
+              sourceType={hlsIsHls ? 'hls' : 'file'}
+              subtitleSrc={subtitleSrc}
+              subtitleLabel={subtitleLabel}
+              subtitleLang={language}
+              onError={() => {
+                setLoading(false)
+                setError(true)
+              }}
+            />
+          ) : null
+        ) : (
+          <iframe
+            key={`player-${serverIndex}-${iframeKey}-${frameIdentity}`}
+            src={getEmbedUrl()}
+            title={title ? `Video player for ${title}` : `Video player from ${currentServer.name}`}
+            className={`w-full h-full transition-opacity duration-500 ${
+              loading || error ? 'opacity-0' : 'opacity-100'
+            }`}
+            allowFullScreen
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            referrerPolicy="origin"
+            onLoad={() => {
+              setLoading(false)
+              setError(false)
+              setFrameLoaded(true)
+            }}
+            onError={() => {
+              setLoading(false)
+              setError(true)
+              setFrameLoaded(false)
+            }}
+          />
+        )}
       </div>
 
       {/* Info Bar */}
@@ -439,14 +527,16 @@ export default function VideoPlayer({
               unreachable, switch servers or open this server in a new tab.
             </p>
           )}
-          <a
-            href={getEmbedUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex text-primary underline-offset-4 hover:underline"
-          >
-            Open {currentServer.name} in a new tab
-          </a>
+          {!isHlsServer && (
+            <a
+              href={getEmbedUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex text-primary underline-offset-4 hover:underline"
+            >
+              Open {currentServer.name} in a new tab
+            </a>
+          )}
           {isLocalhost && (
             <p className="text-amber-200 font-medium">
               ⚠️ Running on localhost - Some servers may show CORS errors in console. This is normal and will work on deployed site (Vercel/Netlify).

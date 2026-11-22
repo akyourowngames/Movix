@@ -114,7 +114,7 @@ function SearchPageContent() {
       return
     }
 
-    const key = `${contentType}:${q.toLowerCase()}`
+    const key = `${language}:${contentType}:${q.toLowerCase()}`
     const cached = cache.get(key)
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
       setItems(cached.items)
@@ -128,7 +128,7 @@ function SearchPageContent() {
     setError(false)
 
     const timer = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(q)}&type=${contentType}`, {
+      fetch(`/api/search?q=${encodeURIComponent(q)}&type=${contentType}&lang=${language}`, {
         signal: controller.signal,
       })
         .then((res) => {
@@ -152,7 +152,7 @@ function SearchPageContent() {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [query, contentType, reloadKey])
+  }, [query, contentType, reloadKey, language])
 
   // Filters run locally — changing them never re-triggers a network request
   const results = useMemo(() => {

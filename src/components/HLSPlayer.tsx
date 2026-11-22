@@ -15,15 +15,28 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Subtitles,
 } from 'lucide-react'
 
 interface HLSPlayerProps {
   src: string
   title?: string
+  sourceType?: 'hls' | 'file'
+  subtitleSrc?: string
+  subtitleLabel?: string
+  subtitleLang?: string
   onError?: () => void
 }
 
-export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
+export default function HLSPlayer({
+  src,
+  title,
+  sourceType = 'hls',
+  subtitleSrc,
+  subtitleLabel,
+  subtitleLang,
+  onError,
+}: HLSPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -50,6 +63,7 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
   const [showSettings, setShowSettings] = useState(false)
   const [qualities, setQualities] = useState<number[]>([])
   const [currentQuality, setCurrentQuality] = useState(-1)
+  const [subtitlesOn, setSubtitlesOn] = useState(true)
 
   // Initialize HLS
   useEffect(() => {
@@ -77,7 +91,17 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
     setCurrentQuality(-1)
     recoveryRef.current = { network: 0, media: 0 }
 
-    if (Hls.isSupported()) {
+    if (sourceType === 'file') {
+      nativeSource = true
+      video.addEventListener('loadedmetadata', handleNativeLoadedMetadata)
+      video.addEventListener('error', handleNativeError)
+      try {
+        video.src = src
+        video.load()
+      } catch {
+        handleNativeError()
+      }
+    } else if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
@@ -145,7 +169,7 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
         video.load()
       }
     }
-  }, [src])
+  }, [src, sourceType])
 
   // Video event listeners
   useEffect(() => {
@@ -213,8 +237,7 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
   const handlePlayerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       const video = videoRef.current
       const target = e.target as HTMLElement
-      if (!video || target.closest('input, textarea, select, [contenteditable="true"], button')) return
-      if (target !== e.currentTarget && target !== video) return
+      if (!video || target.closest('input, textarea, select, [contenteditable="true"]')) return
 
       switch (e.key) {
         case ' ':
@@ -223,11 +246,15 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
           break
         case 'ArrowLeft':
           e.preventDefault()
-          video.currentTime = Math.max(0, video.currentTime - 10)
+          if (Number.isFinite(video.duration)) {
+            video.currentTime = Math.max(0, video.currentTime - 10)
+          }
           break
         case 'ArrowRight':
           e.preventDefault()
-          video.currentTime = Math.min(video.duration, video.currentTime + 10)
+          if (Number.isFinite(video.duration)) {
+            video.currentTime = Math.min(video.duration, video.currentTime + 10)
+          }
           break
         case 'ArrowUp':
           e.preventDefault()
@@ -263,6 +290,27 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
       videoRef.current.muted = isMuted
     }
   }, [isMuted])
+
+  // Toggle the external subtitle track without unmounting the video.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const apply = () => {
+      const tracks = video.textTracks
+      for (let index = 0; index < tracks.length; index += 1) {
+        tracks[index].mode = subtitleSrc && subtitlesOn ? 'showing' : 'disabled'
+      }
+    }
+
+    apply()
+    video.textTracks.addEventListener('addtrack', apply)
+    video.addEventListener('loadedmetadata', apply)
+    return () => {
+      video.textTracks.removeEventListener('addtrack', apply)
+      video.removeEventListener('loadedmetadata', apply)
+    }
+  }, [subtitleSrc, subtitlesOn, src])
 
   // Update playback rate
   useEffect(() => {
@@ -355,7 +403,21 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
     setCurrentTime(0)
     setDuration(0)
     recoveryRef.current = { network: 0, media: 0 }
-    if (hlsRef.current) {
+    if (sourceType === 'file') {
+      const video = videoRef.current
+      if (video) {
+        video.pause()
+        video.currentTime = 0
+        try {
+          video.src = src
+          video.load()
+        } catch {
+          setError(true)
+          setIsBuffering(false)
+          onErrorRef.current?.()
+        }
+      }
+    } else if (hlsRef.current) {
       const video = videoRef.current
       video?.pause()
       if (video) {
@@ -393,8 +455,9 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
   }
 
   const handlePlayerSurfaceClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) {
-      event.currentTarget.focus()
+    const target = event.target as HTMLElement
+    if (target === event.currentTarget || target === videoRef.current) {
+      containerRef.current?.focus()
       togglePlay()
     }
   }
@@ -440,7 +503,18 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
         tabIndex={-1}
         aria-hidden="true"
         playsInline
-      />
+      >
+        {subtitleSrc && (
+          <track
+            key={subtitleSrc}
+            kind="subtitles"
+            src={subtitleSrc}
+            srcLang={subtitleLang || 'en'}
+            label={subtitleLabel || 'English'}
+            default
+          />
+        )}
+      </video>
 
       {/* Buffering Spinner */}
       <AnimatePresence>
@@ -588,6 +662,21 @@ export default function HLSPlayer({ src, title, onError }: HLSPlayerProps) {
               </span>
 
               <div className="flex-1" />
+
+              {/* Subtitles */}
+              {subtitleSrc && (
+                <button
+                  type="button"
+                  aria-label={subtitlesOn ? 'Turn subtitles off' : 'Turn subtitles on'}
+                  aria-pressed={subtitlesOn}
+                  onClick={() => setSubtitlesOn((prev) => !prev)}
+                  className={`flex min-h-11 min-w-11 items-center justify-center rounded hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
+                    subtitlesOn ? 'text-primary' : 'text-white/60'
+                  }`}
+                >
+                  <Subtitles className="w-5 h-5" />
+                </button>
+              )}
 
               {/* Settings */}
               <div className="relative">

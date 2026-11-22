@@ -88,15 +88,82 @@ export const searchMovies = async (query: string) => {
   }
 }
 
-export const searchCatalog = async (
+export type TitleLanguage = 'en' | 'hi'
+
+const searchByLanguage = async (
   media: 'movie' | 'tv',
-  query: string
+  query: string,
+  language: string
 ): Promise<{ ok: boolean; results: TMDBMovie[] }> => {
-  const params = new URLSearchParams({ api_key: KEY || '', query, language: 'hi-IN' })
+  const params = new URLSearchParams({ api_key: KEY || '', query, language })
   const res = await fetchTMDB(`${BASE}/search/${media}?${params.toString()}`)
   if (!res?.ok) return { ok: false, results: [] }
   const data = await res.json()
   return { ok: true, results: (data.results || []) as TMDBMovie[] }
+}
+
+const titleOf = (item?: TMDBMovie | null) => item?.title || item?.name || ''
+const originalTitleOf = (item?: TMDBMovie | null) =>
+  item?.original_title || item?.original_name || ''
+
+const resolveSearchTitle = (
+  primary: TMDBMovie,
+  english: TMDBMovie | undefined,
+  lang: TitleLanguage
+) => {
+  const primaryTitle = titleOf(primary)
+  const englishTitle = titleOf(english)
+  const originalTitle = originalTitleOf(primary) || originalTitleOf(english)
+
+  // English mode must never keep a Hindi or Japanese translation.
+  if (lang === 'en') return englishTitle || primaryTitle || originalTitle
+
+  // Hindi mode: keep a real Hindi translation, otherwise use the English title
+  // instead of TMDB's original-language fallback (often Japanese for anime).
+  if (primaryTitle && primaryTitle !== originalTitle) return primaryTitle
+  if (primary.original_language === 'hi' && primaryTitle) return primaryTitle
+  return englishTitle || primaryTitle || originalTitle
+}
+
+export const searchCatalog = async (
+  media: 'movie' | 'tv',
+  query: string,
+  lang: TitleLanguage = 'en'
+): Promise<{ ok: boolean; results: TMDBMovie[] }> => {
+  const primaryLanguage = lang === 'hi' ? 'hi-IN' : 'en-US'
+  const [primary, english] = await Promise.all([
+    searchByLanguage(media, query, primaryLanguage),
+    lang === 'hi'
+      ? searchByLanguage(media, query, 'en-US')
+      : Promise.resolve({ ok: false, results: [] as TMDBMovie[] }),
+  ])
+
+  if (!primary.ok && !english.ok) return { ok: false, results: [] }
+
+  const englishById = new Map(english.results.map((item) => [item.id, item]))
+  const ordered: TMDBMovie[] = []
+  const seen = new Set<number>()
+
+  for (const item of [...primary.results, ...english.results]) {
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    ordered.push(item)
+  }
+
+  const results = ordered
+    .map((item) => {
+      const fallback = englishById.get(item.id)
+      const resolved = resolveSearchTitle(item, fallback, lang)
+      if (/[\u3040-\u30ff\u3400-\u9fff]/.test(resolved)) return null
+      return {
+        ...item,
+        title: resolved || item.title,
+        ...(media === 'tv' ? { name: resolved || item.name } : {}),
+      }
+    })
+    .filter((item): item is TMDBMovie => Boolean(item))
+
+  return { ok: true, results }
 }
 
 // Get movie details with IMDB ID
