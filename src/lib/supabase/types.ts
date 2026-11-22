@@ -167,7 +167,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      analytics_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      track_analytics_event: {
+        Args: {
+          p_event: string
+          p_path: string
+          p_referrer: string
+          p_visitor_id: string
+          p_session_id: string
+          p_user_agent: string
+          p_country: string
+          p_device: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -4,6 +4,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import ChromeGate from '@/components/ChromeGate'
+import AnalyticsTracker from '@/components/AnalyticsTracker'
 import { AuthProvider } from '@/components/AuthProvider'
 import { LanguageProvider } from '@/components/LanguageProvider'
 import {
@@ -115,6 +116,7 @@ export default function RootLayout({
             <ChromeGate>
               <Footer />
             </ChromeGate>
+            <AnalyticsTracker />
           </AuthProvider>
         </LanguageProvider>
       </body>
