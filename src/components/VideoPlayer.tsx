@@ -15,7 +15,7 @@ interface StreamServer {
   mobileFriendly?: boolean
   animeOnly?: boolean
   kind?: 'iframe' | 'resolver'
-  languages: ('hi' | 'en')[]
+  languages: ('hi' | 'en' | 'ja')[]
   movie: (tmdbId: string, imdbId?: string) => string
   tv: (tmdbId: string, season: number, episode: number, imdbId?: string) => string
 }
@@ -88,9 +88,57 @@ const SERVERS: StreamServer[] = [
     languages: ['hi'],
     mobileFriendly: true,
   },
+  {
+    name: 'Anime JP · VidHawk',
+    kind: 'resolver',
+    animeOnly: true,
+    movie: (id: string) =>
+      `/api/anime-japanese?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1&provider=vidhawk`,
+    tv: (id: string, s: number, e: number) =>
+      `/api/anime-japanese?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}&provider=vidhawk`,
+    note: 'Anime only • Raw Japanese audio • VidHawk',
+    banner: '🇯🇵 Anime JP · VidHawk — raw Japanese audio. If it fails, switch to AnimeEmbed or MegaPlay.',
+    languages: ['ja'],
+    mobileFriendly: true,
+  },
+  {
+    name: 'Anime JP · AnimeEmbed',
+    kind: 'resolver',
+    animeOnly: true,
+    movie: (id: string) =>
+      `/api/anime-japanese?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1&provider=animeembed`,
+    tv: (id: string, s: number, e: number) =>
+      `/api/anime-japanese?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}&provider=animeembed`,
+    note: 'Anime only • Japanese audio + English subs • AnimeEmbed',
+    banner: '🇯🇵 Anime JP · AnimeEmbed — Japanese audio with English subtitles.',
+    languages: ['ja'],
+    mobileFriendly: true,
+  },
+  {
+    name: 'Anime JP · MegaPlay',
+    kind: 'resolver',
+    animeOnly: true,
+    movie: (id: string) =>
+      `/api/anime-japanese?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1&provider=megaplay`,
+    tv: (id: string, s: number, e: number) =>
+      `/api/anime-japanese?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}&provider=megaplay`,
+    note: 'Anime only • Japanese audio + English subs • MegaPlay',
+    banner: '🇯🇵 Anime JP · MegaPlay — Japanese audio with English subtitles (HiAnime library).',
+    languages: ['ja'],
+    mobileFriendly: true,
+  },
 ]
 
 const AUTO_EMBED_INDEX = SERVERS.findIndex((server) => server.name === 'AutoEmbed')
+
+const languageLabel = (lang: 'hi' | 'en' | 'ja') => lang === 'hi' ? 'HI' : lang === 'ja' ? 'JP' : 'EN'
+const languageName = (lang: 'hi' | 'en' | 'ja') => lang === 'hi' ? 'Hindi' : lang === 'ja' ? 'Japanese' : 'English'
+const languageChip = (lang: 'hi' | 'en' | 'ja') =>
+  lang === 'hi'
+    ? 'bg-orange-400/15 text-orange-300'
+    : lang === 'ja'
+      ? 'bg-fuchsia-400/15 text-fuchsia-300'
+      : 'bg-sky-400/15 text-sky-300'
 
 interface VideoPlayerProps {
   tmdbId: string
@@ -304,22 +352,20 @@ export default function VideoPlayer({
                 <span
                   className="flex items-center gap-0.5"
                   aria-label={`Languages: ${s.languages
-                    .map((lang) => (lang === 'hi' ? 'Hindi' : 'English'))
+                    .map((lang) => languageName(lang))
                     .join(' and ')}`}
                 >
                   {s.languages.map((lang) => (
                     <span
                       key={lang}
-                      title={lang === 'hi' ? 'Hindi audio' : 'English audio'}
+                      title={`${languageName(lang)} audio`}
                       className={`rounded px-1 py-0.5 text-[9px] font-bold ${
                         serverIndex === i
                           ? 'bg-black/15 text-black/70'
-                          : lang === 'hi'
-                            ? 'bg-orange-400/15 text-orange-300'
-                            : 'bg-sky-400/15 text-sky-300'
+                          : languageChip(lang)
                       }`}
                     >
-                      {lang === 'hi' ? 'HI' : 'EN'}
+                      {languageLabel(lang)}
                     </span>
                   ))}
                 </span>
@@ -486,7 +532,7 @@ export default function VideoPlayer({
           <p>
             Languages:{' '}
             {currentServer.languages
-              .map((lang) => (lang === 'hi' ? 'Hindi' : 'English'))
+              .map((lang) => languageName(lang))
               .join(' + ')}
           </p>
           <p>

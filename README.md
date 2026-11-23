@@ -49,6 +49,7 @@ It was built around one idea: **discovery should feel cinematic, and playback sh
 
 - 🎯 **Hindi-first discovery** — Bollywood, South Indian, Indian web series, Hollywood, K-dramas and anime in one catalogue.
 - 🍿 **One-button Hindi anime** — the **Anime Hindi** server tries Hindidub first, verifies the source, then falls back to HDAnime automatically.
+- 🇯🇵 **Three anime Japanese servers** — **VidHawk** (raw Japanese audio), **AnimeEmbed** and **MegaPlay** (Japanese audio + English subs), all resolved from AniList.
 - 🔁 **Multi-server playback** — HLS.js + embed fallbacks with per-server hints and mobile-friendly defaults.
 - 📺 **Episode resume** — TV pages remember the last season and episode you opened.
 - 🧠 **Personal recommendations** — “For You” and “Because You Watched …” rows built from genre affinity, recency and language preference.
@@ -152,6 +153,7 @@ src/
 │   ├── admin/analytics/         # live analytics dashboard
 │   └── api/
 │       ├── anime-hindi/         # one-button Hindi anime resolver
+│       ├── anime-japanese/      # VidHawk / AnimeEmbed / MegaPlay
 │       ├── catalog/             # TMDB catalogue
 │       ├── search/              # language-aware search
 │       ├── recommend/           # personal recommendations
@@ -240,10 +242,13 @@ Import the repo into Vercel, add the environment variables, and deploy. No datab
 | `GET /api/season?tv=&season=` | Season episode list |
 | `GET /api/recommend` | Personal recommendation scoring |
 | `GET /api/anime-hindi?type=&tmdbId=&season=&episode=` | One-button Hindi anime resolver |
+| `GET /api/anime-japanese?type=&tmdbId=&season=&episode=&provider=vidhawk\|animeembed\|megaplay` | Anime-only Japanese servers |
 | `POST /api/pulse` | First-party analytics heartbeat |
 | `GET /api/admin/analytics` | Admin analytics overview |
 
 `/api/anime-hindi` tries **Hindidub** first, checks the top sources, then falls back to **HDAnime**. It caches results for five minutes, rate-limits requests, and only accepts public HTTPS embed URLs.
+
+`/api/anime-japanese` maps the TMDB title to an AniList ID and exposes three anime-only Japanese servers: **VidHawk** (raw Japanese audio), **AnimeEmbed** and **MegaPlay** (Japanese audio + English subs).
 
 ---
 

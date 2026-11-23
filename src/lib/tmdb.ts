@@ -255,6 +255,16 @@ export const getTVDetails = cache(async (tmdbId: string) => {
   return res.json()
 })
 
+// Lightweight title metadata for resolvers that only need names/years
+export const getTitleBasics = cache(async (mediaType: 'movie' | 'tv', tmdbId: string) => {
+  if (!/^\d{1,9}$/.test(tmdbId)) return null
+
+  const type = mediaType === 'movie' ? 'movie' : 'tv'
+  const res = await fetchTMDB(`${BASE}/${type}/${tmdbId}?api_key=${KEY}&language=en-US`, 3600)
+  if (!res?.ok) return null
+  return res.json()
+})
+
 // Episodes in a season
 export const getSeasonEpisodes = async (tmdbId: string, season: number) => {
   if (!/^\d{1,9}$/.test(tmdbId) || !Number.isInteger(season) || season < 0 || season > 500) {
