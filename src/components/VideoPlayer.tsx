@@ -17,7 +17,7 @@ interface StreamServer {
   kind?: 'iframe' | 'resolver'
   languages: ('hi' | 'en' | 'ja')[]
   movie: (tmdbId: string, imdbId?: string) => string
-  tv: (tmdbId: string, season: number, episode: number, imdbId?: string) => string
+  tv: (tmdbId: string, season: number, episode: number, imdbId?: string, seasonName?: string) => string
 }
 
 const CINEZO_QUERY =
@@ -76,6 +76,19 @@ const SERVERS: StreamServer[] = [
     languages: ['en'],
   },
   {
+    name: 'AniWaves',
+    kind: 'resolver',
+    animeOnly: true,
+    movie: (id: string) =>
+      `/api/aniwaves?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1`,
+    tv: (id: string, s: number, e: number, _imdbId?: string, seasonName?: string) =>
+      `/api/aniwaves?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}${seasonName ? `&seasonName=${encodeURIComponent(seasonName)}` : ''}`,
+    note: 'Anime only • Japanese sub/dub • AniWaves direct player',
+    banner: '🌊 AniWaves — direct sub/dub HLS player. If one server fails, switch to Anime Hindi or VidSrc.',
+    languages: ['ja', 'en'],
+    mobileFriendly: true,
+  },
+  {
     name: 'Anime Hindi',
     kind: 'resolver',
     animeOnly: true,
@@ -86,45 +99,6 @@ const SERVERS: StreamServer[] = [
     note: 'Anime only • Hindi dub • Auto-failover: Hindidub → HDAnime',
     banner: '🇮🇳 Anime Hindi — auto-picks a working Hindi-dub source (Hindidub, then HDAnime).',
     languages: ['hi'],
-    mobileFriendly: true,
-  },
-  {
-    name: 'Anime JP · VidHawk',
-    kind: 'resolver',
-    animeOnly: true,
-    movie: (id: string) =>
-      `/api/anime-japanese?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1&provider=vidhawk`,
-    tv: (id: string, s: number, e: number) =>
-      `/api/anime-japanese?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}&provider=vidhawk`,
-    note: 'Anime only • Raw Japanese audio • VidHawk',
-    banner: '🇯🇵 Anime JP · VidHawk — raw Japanese audio. If it fails, switch to AnimeEmbed or MegaPlay.',
-    languages: ['ja'],
-    mobileFriendly: true,
-  },
-  {
-    name: 'Anime JP · AnimeEmbed',
-    kind: 'resolver',
-    animeOnly: true,
-    movie: (id: string) =>
-      `/api/anime-japanese?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1&provider=animeembed`,
-    tv: (id: string, s: number, e: number) =>
-      `/api/anime-japanese?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}&provider=animeembed`,
-    note: 'Anime only • Japanese audio + English subs • AnimeEmbed',
-    banner: '🇯🇵 Anime JP · AnimeEmbed — Japanese audio with English subtitles.',
-    languages: ['ja'],
-    mobileFriendly: true,
-  },
-  {
-    name: 'Anime JP · MegaPlay',
-    kind: 'resolver',
-    animeOnly: true,
-    movie: (id: string) =>
-      `/api/anime-japanese?type=movie&tmdbId=${encodeURIComponent(id)}&season=1&episode=1&provider=megaplay`,
-    tv: (id: string, s: number, e: number) =>
-      `/api/anime-japanese?type=tv&tmdbId=${encodeURIComponent(id)}&season=${s}&episode=${e}&provider=megaplay`,
-    note: 'Anime only • Japanese audio + English subs • MegaPlay',
-    banner: '🇯🇵 Anime JP · MegaPlay — Japanese audio with English subtitles (HiAnime library).',
-    languages: ['ja'],
     mobileFriendly: true,
   },
 ]
@@ -148,6 +122,7 @@ interface VideoPlayerProps {
   episode?: number
   title?: string
   isAnime?: boolean
+  seasonName?: string
 }
 
 export default function VideoPlayer({
@@ -158,6 +133,7 @@ export default function VideoPlayer({
   episode = 1,
   title,
   isAnime = false,
+  seasonName,
 }: VideoPlayerProps) {
   const initialServerIndex = SERVERS.findIndex(
     (server) => (!server.animeOnly || isAnime) && (!server.requiresImdb || Boolean(imdbId))
@@ -223,7 +199,7 @@ export default function VideoPlayer({
     let cancelled = false
     const resolverUrl =
       type === 'tv'
-        ? currentServer.tv(tmdbId, season, episode, imdbId)
+        ? currentServer.tv(tmdbId, season, episode, imdbId, seasonName)
         : currentServer.movie(tmdbId, imdbId)
 
     setResolved(null)
@@ -263,7 +239,7 @@ export default function VideoPlayer({
       cancelled = true
       controller.abort()
     }
-  }, [isResolver, currentServer, serverIndex, tmdbId, imdbId, type, season, episode, iframeKey])
+  }, [isResolver, currentServer, serverIndex, tmdbId, imdbId, type, season, episode, seasonName, iframeKey])
 
   useEffect(() => {
     recordPlayback({
@@ -280,7 +256,7 @@ export default function VideoPlayer({
 
   const getEmbedUrl = () => {
     if (type === 'tv') {
-      return currentServer.tv(tmdbId, season, episode, imdbId)
+      return currentServer.tv(tmdbId, season, episode, imdbId, seasonName)
     }
     return currentServer.movie(tmdbId, imdbId)
   }

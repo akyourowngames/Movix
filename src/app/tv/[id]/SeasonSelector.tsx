@@ -13,7 +13,10 @@ interface Season {
   season_number: number
   episode_count: number
   air_date: string
-  poster_path: string
+  poster_path: string | null
+  source?: 'tmdb' | 'anilist'
+  anilistId?: number
+  image?: string
 }
 
 interface Episode {
@@ -25,6 +28,7 @@ interface Episode {
   still_path: string
   air_date: string
   runtime: number
+  image_url?: string
 }
 
 interface SeasonSelectorProps {
@@ -36,6 +40,7 @@ interface SeasonSelectorProps {
 }
 
 const episodeCache = new Map<string, Episode[]>()
+
 
 export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isAnime = false }: SeasonSelectorProps) {
   // Filter out season 0 (specials) and sort
@@ -200,20 +205,43 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
 
   // Fetch episodes when season changes
   useEffect(() => {
-    const key = `${tmdbId}:${selectedSeason}`
-    const cached = episodeCache.get(key)
+    const seasonConfig = seasons.find((season) => season.season_number === selectedSeason)
+    const resumeAt = resumeBySeason.current.get(selectedSeason)
 
-    if (cached) {
-      setEpisodes(cached)
-      const resumeAt = resumeBySeason.current.get(selectedSeason)
+    const applyEpisodes = (list: Episode[]) => {
       if (resumeAt) resumeBySeason.current.delete(selectedSeason)
-      const firstEpisode = cached[0]?.episode_number ?? 1
+      setEpisodes(list)
+      const firstEpisode = list[0]?.episode_number ?? 1
       setSelectedEpisode(
-        resumeAt && cached.some((episode) => episode.episode_number === resumeAt)
+        resumeAt && list.some((episode) => episode.episode_number === resumeAt)
           ? resumeAt
           : firstEpisode
       )
       setLoading(false)
+    }
+
+    if (seasonConfig?.source === 'anilist') {
+      const count = seasonConfig.episode_count
+      const list: Episode[] = Array.from({ length: count }, (_, index) => ({
+        id: -(seasonConfig.id * 10000 + index + 1),
+        name: `Episode ${index + 1}`,
+        episode_number: index + 1,
+        season_number: selectedSeason,
+        overview: '',
+        still_path: '',
+        air_date: '',
+        runtime: 0,
+        image_url: seasonConfig.image,
+      }))
+      setEpisodeError(false)
+      applyEpisodes(list)
+      return
+    }
+
+    const key = `${tmdbId}:${selectedSeason}`
+    const cached = episodeCache.get(key)
+    if (cached) {
+      applyEpisodes(cached)
       return
     }
 
@@ -230,17 +258,8 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
       .then((data) => {
         const results: Episode[] = data.episodes || []
         episodeCache.set(key, results)
-        setEpisodes(results)
         setEpisodeError(false)
-        const resumeAt = resumeBySeason.current.get(selectedSeason)
-        if (resumeAt) resumeBySeason.current.delete(selectedSeason)
-        const firstEpisode = results[0]?.episode_number ?? 1
-        setSelectedEpisode(
-          resumeAt && results.some((episode) => episode.episode_number === resumeAt)
-            ? resumeAt
-            : firstEpisode
-        )
-        setLoading(false)
+        applyEpisodes(results)
       })
       .catch((err) => {
         if ((err as Error).name === 'AbortError') return
@@ -250,10 +269,15 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
       })
 
     return () => controller.abort()
-  }, [tmdbId, selectedSeason, episodeRetryKey])
+  }, [tmdbId, selectedSeason, episodeRetryKey, seasons])
 
   const currentSeason = validSeasons.find(s => s.season_number === selectedSeason)
   const currentEpisode = episodes.find(e => e.episode_number === selectedEpisode)
+  const episodeImage = (episode: Episode) =>
+    episode.image_url ||
+    (episode.still_path ? `https://image.tmdb.org/t/p/w500${episode.still_path}` : '') ||
+    currentSeason?.image ||
+    ''
 
   return (
     <div className="space-y-6">
@@ -393,10 +417,10 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
                     }`}
                   >
                     <div className="aspect-video bg-zinc-900 overflow-hidden">
-                      {episode.still_path ? (
+                      {episodeImage(episode) ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img
-                          src={`https://image.tmdb.org/t/p/w500${episode.still_path}`}
+                          src={episodeImage(episode)}
                           alt={episode.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -430,10 +454,10 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
         <div className="p-6 bg-white/5 rounded-xl border border-white/10">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 w-32 aspect-video rounded-lg overflow-hidden bg-zinc-900">
-              {currentEpisode.still_path ? (
+              {episodeImage(currentEpisode) ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={`https://image.tmdb.org/t/p/w500${currentEpisode.still_path}`}
+                  src={episodeImage(currentEpisode)}
                   alt={currentEpisode.name}
                   className="w-full h-full object-cover"
                 />
@@ -495,6 +519,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
           episode={selectedEpisode}
           title={`${showTitle} - S${selectedSeason}E${selectedEpisode}`}
           isAnime={isAnime}
+          seasonName={currentSeason?.name}
         />
       ) : (
         <div

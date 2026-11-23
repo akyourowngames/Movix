@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getTVDetails } from '@/lib/tmdb'
+import { getAnimeSeasons } from '@/lib/animeSeasons'
 import { getImageUrl } from '@/lib/catalog'
 import { Star, Calendar, Users, Tv, Play } from 'lucide-react'
 import Link from 'next/link'
@@ -105,6 +106,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
 
     const genres = show.genres || []
     const isAnime = show.original_language === 'ja' && genres.some((genre: Genre) => genre.id === 16)
+    const seasonsForUi = await getAnimeSeasons(show, isAnime)
     const poster = show.poster_path ? getImageUrl(show.poster_path, 'w500') : undefined
     const backdrop = show.backdrop_path ? getImageUrl(show.backdrop_path, 'w1280') : undefined
 
@@ -123,7 +125,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
           datePublished: show.first_air_date || undefined,
           genre: genres.map((genre: Genre) => genre.name),
           inLanguage: show.original_language || undefined,
-          numberOfSeasons: show.number_of_seasons || undefined,
+          numberOfSeasons: seasonsForUi.length || undefined,
           numberOfEpisodes: show.number_of_episodes || undefined,
           url: absoluteUrl(`/tv/${show.id}`),
           sameAs: [`https://www.themoviedb.org/tv/${show.id}`],
@@ -249,9 +251,9 @@ export default async function TVPage({ params }: { params: { id: string } }) {
                 <Tv className="w-5 h-5 text-white/60" />
                 <span>
                   <span className="lang-en">
-                    {show.number_of_seasons} Season{show.number_of_seasons > 1 ? 's' : ''}
+                    {seasonsForUi.length} Season{seasonsForUi.length > 1 ? 's' : ''}
                   </span>
-                  <span className="lang-hi">{show.number_of_seasons} सीज़न</span>
+                  <span className="lang-hi">{seasonsForUi.length} सीज़न</span>
                 </span>
               </div>
             </div>
@@ -326,7 +328,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
           <SeasonSelector
             tmdbId={params.id}
             imdbId={show.external_ids?.imdb_id}
-            seasons={show.seasons || []}
+            seasons={seasonsForUi}
             showTitle={show.name}
             isAnime={isAnime}
           />

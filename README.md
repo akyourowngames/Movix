@@ -49,7 +49,8 @@ It was built around one idea: **discovery should feel cinematic, and playback sh
 
 - 🎯 **Hindi-first discovery** — Bollywood, South Indian, Indian web series, Hollywood, K-dramas and anime in one catalogue.
 - 🍿 **One-button Hindi anime** — the **Anime Hindi** server tries Hindidub first, verifies the source, then falls back to HDAnime automatically.
-- 🇯🇵 **Three anime Japanese servers** — **VidHawk** (raw Japanese audio), **AnimeEmbed** and **MegaPlay** (Japanese audio + English subs), all resolved from AniList.
+- 🌊 **AniWaves anime crawler** — resolves a title to AniWaves, selects the episode and sub/dub server, then plays the stream through a signed HLS proxy.
+- 🗂️ **AniList anime seasons** — anime season and episode counts come from AniList, so JJK and Bleach are not collapsed into TMDB’s merged seasons.
 - 🔁 **Multi-server playback** — HLS.js + embed fallbacks with per-server hints and mobile-friendly defaults.
 - 📺 **Episode resume** — TV pages remember the last season and episode you opened.
 - 🧠 **Personal recommendations** — “For You” and “Because You Watched …” rows built from genre affinity, recency and language preference.
@@ -153,7 +154,7 @@ src/
 │   ├── admin/analytics/         # live analytics dashboard
 │   └── api/
 │       ├── anime-hindi/         # one-button Hindi anime resolver
-│       ├── anime-japanese/      # VidHawk / AnimeEmbed / MegaPlay
+│       ├── aniwaves/            # AniWaves episode/server crawler
 │       ├── catalog/             # TMDB catalogue
 │       ├── search/              # language-aware search
 │       ├── recommend/           # personal recommendations
@@ -180,7 +181,7 @@ src/
 | **Framework** | Next.js 14 — App Router + Route Handlers |
 | **Language** | TypeScript 5 |
 | **UI** | React 18, Tailwind CSS, shadcn-style primitives, Framer Motion |
-| **Data** | TMDB API |
+| **Data** | TMDB catalogue + AniList anime seasons |
 | **Auth & DB** | Supabase Auth, Postgres, row-level security |
 | **Playback** | HLS.js, multi-source iframe fallbacks, Anime Hindi resolver |
 | **Analytics** | First-party cookies + Supabase RPCs |
@@ -242,13 +243,13 @@ Import the repo into Vercel, add the environment variables, and deploy. No datab
 | `GET /api/season?tv=&season=` | Season episode list |
 | `GET /api/recommend` | Personal recommendation scoring |
 | `GET /api/anime-hindi?type=&tmdbId=&season=&episode=` | One-button Hindi anime resolver |
-| `GET /api/anime-japanese?type=&tmdbId=&season=&episode=&provider=vidhawk\|animeembed\|megaplay` | Anime-only Japanese servers |
+| `GET /api/aniwaves?type=&tmdbId=&season=&episode=` | AniWaves sub/dub crawler |
 | `POST /api/pulse` | First-party analytics heartbeat |
 | `GET /api/admin/analytics` | Admin analytics overview |
 
 `/api/anime-hindi` tries **Hindidub** first, checks the top sources, then falls back to **HDAnime**. It caches results for five minutes, rate-limits requests, and only accepts public HTTPS embed URLs.
 
-`/api/anime-japanese` maps the TMDB title to an AniList ID and exposes three anime-only Japanese servers: **VidHawk** (raw Japanese audio), **AnimeEmbed** and **MegaPlay** (Japanese audio + English subs).
+`/api/aniwaves` searches AniWaves by title, maps the requested episode, picks the sub/dub server, and returns a signed, proxied HLS stream.
 
 ---
 
