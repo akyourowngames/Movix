@@ -154,6 +154,7 @@ export const pushPlayback = async (entry: {
   season?: number | null
   episode?: number | null
   title?: string | null
+  serverId?: string
 }) => {
   const supabase = getSupabase()
   if (!supabase) return
@@ -161,18 +162,36 @@ export const pushPlayback = async (entry: {
   if (!userId) return
   if (!(await isCurrentCloudUser(supabase, userId))) return
 
-  const { error } = await supabase.from('playback').upsert(
-    {
-      user_id: userId,
-      media_type: mediaType(entry.type),
-      tmdb_id: entry.id,
-      season: entry.season ?? null,
-      episode: entry.episode ?? null,
-      title: entry.title ?? null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,media_type,tmdb_id' }
-  )
+  const payload = {
+    user_id: userId,
+    media_type: mediaType(entry.type),
+    tmdb_id: entry.id,
+    season: entry.season ?? null,
+    episode: entry.episode ?? null,
+    server: entry.serverId ?? null,
+    title: entry.title ?? null,
+    updated_at: new Date().toISOString(),
+  }
+  let { error } = await supabase.from('playback').upsert(payload, {
+    onConflict: 'user_id,media_type,tmdb_id',
+  })
+
+  // Deployments created before the server column existed still sync resume points.
+  if (error && entry.serverId) {
+    const retry = await supabase.from('playback').upsert(
+      {
+        user_id: payload.user_id,
+        media_type: payload.media_type,
+        tmdb_id: payload.tmdb_id,
+        season: payload.season,
+        episode: payload.episode,
+        title: payload.title,
+        updated_at: payload.updated_at,
+      },
+      { onConflict: 'user_id,media_type,tmdb_id' }
+    )
+    error = retry.error
+  }
 
   if (error) console.warn('Failed to sync playback:', error.message)
 }
@@ -258,12 +277,14 @@ const mergeLocalIntoCloud = async (userId: string, library: CloudLibrary) => {
   const historyKeys = new Set(library.history.map((row) => key(row.media_type, row.tmdb_id)))
   const watchlistKeys = new Set(library.watchlist.map((row) => key(row.media_type, row.tmdb_id)))
   const likeKeys = new Set(library.likes.map((row) => key(row.media_type, row.tmdb_id)))
+  const playbackKeys = new Set(library.playback.map((row) => key(row.media_type, row.tmdb_id)))
 
   const history = local.history.filter((item) => !historyKeys.has(key(item.type, item.id)))
   const watchlist = local.watchlist.filter((item) => !watchlistKeys.has(key(item.type, item.id)))
   const likes = local.likes.filter((item) => !likeKeys.has(key(item.type, item.id)))
+  const playback = local.playback.filter((item) => !playbackKeys.has(key(item.type, item.id)))
 
-  if (history.length + watchlist.length + likes.length === 0) return false
+  if (history.length + watchlist.length + likes.length + playback.length === 0) return false
 
   const writes: PromiseLike<unknown>[] = []
 
@@ -320,6 +341,42 @@ const mergeLocalIntoCloud = async (userId: string, library: CloudLibrary) => {
     )
   }
 
+  if (playback.length > 0) {
+    writes.push(
+      (async () => {
+        const rows = playback.map((item) => ({
+          user_id: userId,
+          media_type: item.type,
+          tmdb_id: item.id,
+          season: item.season ?? null,
+          episode: item.episode ?? null,
+          server: item.serverId ?? null,
+          title: item.title ?? null,
+          updated_at: new Date(item.at).toISOString(),
+        }))
+        let { error } = await supabase.from('playback').upsert(rows, {
+          onConflict: 'user_id,media_type,tmdb_id',
+        })
+        if (error) {
+          const fallbackRows = rows.map((row) => ({
+            user_id: row.user_id,
+            media_type: row.media_type,
+            tmdb_id: row.tmdb_id,
+            season: row.season,
+            episode: row.episode,
+            title: row.title,
+            updated_at: row.updated_at,
+          }))
+          const retry = await supabase.from('playback').upsert(fallbackRows, {
+            onConflict: 'user_id,media_type,tmdb_id',
+          })
+          error = retry.error
+        }
+        if (error) throw new Error(error.message)
+      })()
+    )
+  }
+
   const results = await Promise.all(writes)
   if (results.some((result) => Boolean((result as { error?: unknown }).error))) {
     throw new Error('Unable to sync your saved library.')
@@ -328,6 +385,7 @@ const mergeLocalIntoCloud = async (userId: string, library: CloudLibrary) => {
 }
 
 const hydrateLocal = (library: CloudLibrary) => {
+  const localPlayback = getProfileSnapshot().playback
   const profile: LocalProfile = {
     v: 1,
     history: library.history.map((row) => ({
@@ -356,6 +414,31 @@ const hydrateLocal = (library: CloudLibrary) => {
       language: row.language ?? undefined,
       at: Date.parse(row.added_at),
     })),
+    playback: library.playback.map((row) => {
+      const meta =
+        library.history.find(
+          (item) => item.media_type === row.media_type && item.tmdb_id === row.tmdb_id
+        ) ??
+        library.watchlist.find(
+          (item) => item.media_type === row.media_type && item.tmdb_id === row.tmdb_id
+        )
+      const saved = localPlayback.find(
+        (item) => item.id === row.tmdb_id && item.type === row.media_type
+      )
+      return {
+        id: row.tmdb_id,
+        type: row.media_type as MediaKind,
+        title: meta?.title ?? row.title ?? undefined,
+        poster: meta?.poster_path ?? null,
+        genres: meta?.genres ?? [],
+        language: meta?.language ?? undefined,
+        season: row.season,
+        episode: row.episode,
+        serverId: row.server ?? saved?.serverId,
+        serverName: saved?.serverName,
+        at: Date.parse(row.updated_at),
+      }
+    }),
     updatedAt: Date.now(),
   }
 

@@ -72,7 +72,7 @@ export async function generateMetadata({
   }
 }
 
-export default async function TVPage({ params }: { params: { id: string } }) {
+export default async function TVPage({ params, searchParams }: { params: { id: string }; searchParams?: { server?: string | string[] } }) {
     const show = await getTVDetails(params.id)
 
     const cast = show.credits?.cast?.slice(0, 6) || []
@@ -331,6 +331,7 @@ export default async function TVPage({ params }: { params: { id: string } }) {
             seasons={seasonsForUi}
             showTitle={show.name}
             isAnime={isAnime}
+            initialServerId={typeof searchParams?.server === 'string' ? searchParams.server : undefined}
           />
         </div>
 

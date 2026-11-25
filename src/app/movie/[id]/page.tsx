@@ -70,7 +70,7 @@ export async function generateMetadata({
   }
 }
 
-export default async function MoviePage({ params }: { params: { id: string } }) {
+export default async function MoviePage({ params, searchParams }: { params: { id: string }; searchParams?: { server?: string | string[] } }) {
   const movie = await getMovieDetails(params.id)
 
     const cast = movie.credits?.cast?.slice(0, 6) || []
@@ -327,7 +327,7 @@ export default async function MoviePage({ params }: { params: { id: string } }) 
 
         {/* Video Player */}
         <div id="player" className="scroll-mt-28">
-          <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} type="movie" title={movie.title} isAnime={isAnime} />
+          <VideoPlayer tmdbId={params.id} imdbId={movie.external_ids?.imdb_id} type="movie" title={movie.title} isAnime={isAnime} initialServerId={typeof searchParams?.server === 'string' ? searchParams.server : undefined} />
         </div>
 
         {/* Similar Movies */}

@@ -49,6 +49,8 @@ It was built around one idea: **discovery should feel cinematic, and playback sh
 
 - 🎯 **Hindi-first discovery** — Bollywood, South Indian, Indian web series, Hollywood, K-dramas and anime in one catalogue.
 - 🍿 **One-button Hindi anime** — the **Anime Hindi** server tries Hindidub first, verifies the source, then falls back to HDAnime automatically.
+- ▶️ **Continue Playing on home** — guests and signed-in users resume the exact title/episode **and the same playback server**.
+- 🔄 **Daily recommendations** — quality-band rotation and changing source pages keep the feed from freezing on the same titles.
 - 🌊 **AniWaves anime crawler** — resolves a title to AniWaves, selects the episode and sub/dub server, then plays the stream through a signed HLS proxy.
 - 🗂️ **AniList anime seasons** — anime season and episode counts come from AniList, so JJK and Bleach are not collapsed into TMDB’s merged seasons.
 - 🔁 **Multi-server playback** — HLS.js + embed fallbacks with per-server hints and mobile-friendly defaults.

@@ -6,6 +6,7 @@ import {
   removeFromWatchlist,
   toggleLike as toggleLocalLike,
   trackView,
+  upsertPlayback,
   type HistoryItem,
   type MediaKind,
 } from '@/hooks/useLocalProfile'
@@ -22,7 +23,18 @@ export const recordPlayback = (entry: {
   season?: number | null
   episode?: number | null
   title?: string | null
+  serverId?: string
+  serverName?: string
 }) => {
+  upsertPlayback({
+    id: entry.id,
+    type: entry.type,
+    title: entry.title ?? undefined,
+    season: entry.season,
+    episode: entry.episode,
+    serverId: entry.serverId,
+    serverName: entry.serverName,
+  })
   void pushPlayback(entry)
 }
 

@@ -13,6 +13,8 @@ import {
   diversifyByGenre,
   isAcceptable,
   normalizeTMDBItem,
+  rotateRanked,
+  utcDateKey,
   type MediaType,
   type ScorableItem,
 } from '@/lib/recommend'
@@ -42,6 +44,8 @@ export async function GET(request: NextRequest) {
   const rawLangs = (params.get('langs') || '').split(',').map((s) => s.trim()).filter(Boolean)
   const rawExclude = (params.get('exclude') || '').split(',').map((s) => s.trim()).filter(Boolean)
   const limit = Math.min(Math.max(Number(params.get('limit')) || 18, 1), 24)
+  const requestedDay = params.get('day') || ''
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) ? requestedDay : utcDateKey(new Date())
 
   if (rawSeeds.length > 4 || rawSeeds.some((seed) => !SEED_RE.test(seed))) return invalid()
   if (rawGenres.length > 4 || rawGenres.some((genre) => !/^\d{1,6}$/.test(genre))) return invalid()
@@ -76,22 +80,24 @@ export async function GET(request: NextRequest) {
     const discoverParams: DiscoverParams = {
       'vote_count.gte': 50,
       sort_by: 'popularity.desc',
-      page: 1,
     }
     if (genres.length > 0) discoverParams.with_genres = genres.join('|')
     if (langs.length > 0) discoverParams.with_original_language = langs[0]
 
-    const [discoverMovies, discoverTV] = await Promise.all([
-      getDiscoverMovies(discoverParams),
-      getDiscoverTV(discoverParams),
+    const discoverPages = [1, 2, 3]
+    const [movieLists, tvLists] = await Promise.all([
+      Promise.all(discoverPages.map((page) => getDiscoverMovies({ ...discoverParams, page }))),
+      Promise.all(discoverPages.map((page) => getDiscoverTV({ ...discoverParams, page }))),
     ])
+    const discoverMovieResults = movieLists.flatMap((list) => list.results)
+    const discoverTvResults = tvLists.flatMap((list) => list.results)
 
     const successfulSources = [
       ...seedLists,
-      discoverMovies,
-      discoverTV,
+      ...movieLists,
+      ...tvLists,
     ].filter((source) => source.ok).length
-    const attemptedSources = seedLists.length + 2
+    const attemptedSources = seedLists.length + movieLists.length + tvLists.length
 
     if (successfulSources === 0) {
       return respond({ results: [], reason: 'unavailable' }, 503, 'no-store')
@@ -126,10 +132,10 @@ export async function GET(request: NextRequest) {
       })
     })
 
-    discoverMovies.results.forEach((raw: TMDBMovie) =>
+    discoverMovieResults.forEach((raw: TMDBMovie) =>
       addCandidate(raw, 'movie', 0)
     )
-    discoverTV.results.forEach((raw: TMDBMovie) =>
+    discoverTvResults.forEach((raw: TMDBMovie) =>
       addCandidate(raw, 'tv', 0)
     )
 
@@ -153,7 +159,8 @@ export async function GET(request: NextRequest) {
       })
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.id - b.id)
 
-    const selected = diversifyByGenre(scored).slice(0, limit)
+    const seedKey = `${day}:${seeds.map((seed) => `${seed.type}:${seed.id}`).join(',')}:${genres.join(',')}:${langs.join(',')}`
+    const selected = diversifyByGenre(rotateRanked(scored, limit, seedKey, 100, 2)).slice(0, limit)
     const results = selected.map((item) =>
       toCatalogItem(
         {

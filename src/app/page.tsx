@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import HeroSection from '@/components/HeroSection'
 import MovieCarousel from '@/components/MovieCarousel'
 import PersonalRows from '@/components/PersonalRows'
+import ContinuePlayingRow from '@/components/ContinuePlayingRow'
 import { getHomeFeed } from '@/lib/homeFeed'
 import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/site'
 
@@ -37,6 +38,7 @@ export default async function Home() {
       <HeroSection movies={feed.hero} />
 
       <div className="relative z-30 -mt-8 pt-2 md:-mt-12">
+        <ContinuePlayingRow />
         {feed.rows.map((row, index) => (
           <Fragment key={row.key}>
             <MovieCarousel

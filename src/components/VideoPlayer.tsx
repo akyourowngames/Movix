@@ -8,6 +8,7 @@ import HLSPlayer from '@/components/HLSPlayer'
 import { useLanguage } from '@/components/LanguageProvider'
 
 interface StreamServer {
+  id: string
   name: string
   note: string
   banner?: string
@@ -27,6 +28,7 @@ const cinezo = (path: string) => `https://player.cinezo.live/embed/${path}?${CIN
 
 const SERVERS: StreamServer[] = [
   {
+    id: 'vidsrc',
     name: 'VidSrc',
     movie: (_id: string, imdbId?: string) => `https://vidsrc.sh/embed/movie/${encodeURIComponent(imdbId || '')}`,
     tv: (_id: string, s: number, e: number, imdbId?: string) =>
@@ -36,6 +38,7 @@ const SERVERS: StreamServer[] = [
     languages: ['hi', 'en'],
   },
   {
+    id: 'modiplay',
     name: 'ModiPlay',
     movie: (id: string) => `https://rozgarlelo.modiplay.xyz/embed/tmdb/movie?id=${id}`,
     tv: (id: string, s: number, e: number) =>
@@ -45,6 +48,7 @@ const SERVERS: StreamServer[] = [
     languages: ['hi'],
   },
   {
+    id: 'autoembed',
     name: 'AutoEmbed',
     movie: (id: string) => `https://nxsha.space/embed/movie/${id}?lang=hindi&autoplay=true`,
     tv: (id: string, s: number, e: number) => `https://nxsha.space/embed/tv/${id}/${s}/${e}?lang=hindi&autoplay=true`,
@@ -53,6 +57,7 @@ const SERVERS: StreamServer[] = [
     languages: ['hi'],
   },
   {
+    id: 'hindi-exclusive',
     name: 'Hindi Exclusive',
     movie: (_id: string, imdbId?: string) => `https://slast430did.com/play/${imdbId}`,
     tv: (_id: string, _s: number, _e: number, imdbId?: string) => `https://slast430did.com/play/${imdbId}`,
@@ -62,6 +67,7 @@ const SERVERS: StreamServer[] = [
     languages: ['hi'],
   },
   {
+    id: 'cinezo',
     name: 'Cinezo',
     movie: (id: string) => cinezo(`movie/${id}`),
     tv: (id: string, s: number, e: number) => cinezo(`tv/${id}/${s}/${e}`),
@@ -69,6 +75,7 @@ const SERVERS: StreamServer[] = [
     languages: ['en'],
   },
   {
+    id: 'cinesrc',
     name: 'CineSrc',
     movie: (id: string) => `https://cinesrc.st/embed/movie/${id}`,
     tv: (id: string, s: number, e: number) => `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}`,
@@ -76,6 +83,7 @@ const SERVERS: StreamServer[] = [
     languages: ['en'],
   },
   {
+    id: 'aniwaves',
     name: 'AniWaves',
     kind: 'resolver',
     animeOnly: true,
@@ -89,6 +97,7 @@ const SERVERS: StreamServer[] = [
     mobileFriendly: true,
   },
   {
+    id: 'anime-hindi',
     name: 'Anime Hindi',
     kind: 'resolver',
     animeOnly: true,
@@ -123,6 +132,7 @@ interface VideoPlayerProps {
   title?: string
   isAnime?: boolean
   seasonName?: string
+  initialServerId?: string
 }
 
 export default function VideoPlayer({
@@ -134,10 +144,16 @@ export default function VideoPlayer({
   title,
   isAnime = false,
   seasonName,
+  initialServerId,
 }: VideoPlayerProps) {
-  const initialServerIndex = SERVERS.findIndex(
-    (server) => (!server.animeOnly || isAnime) && (!server.requiresImdb || Boolean(imdbId))
-  )
+  const isServerAvailable = (server: StreamServer) =>
+    (!server.animeOnly || isAnime) && (!server.requiresImdb || Boolean(imdbId))
+  const initialServerIndex = (() => {
+    const preferred = initialServerId
+      ? SERVERS.findIndex((server) => server.id === initialServerId && isServerAvailable(server))
+      : -1
+    return preferred >= 0 ? preferred : SERVERS.findIndex(isServerAvailable)
+  })()
   const [serverIndex, setServerIndex] = useState(initialServerIndex >= 0 ? initialServerIndex : 0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -248,11 +264,12 @@ export default function VideoPlayer({
       season: type === 'tv' ? season : null,
       episode: type === 'tv' ? episode : null,
       title: title ?? null,
+      serverId: currentServer.id,
+      serverName: currentServer.name,
     })
-  }, [tmdbId, type, season, episode, title])
+  }, [tmdbId, type, season, episode, title, currentServer.id, currentServer.name])
 
-  const isAvailable = (server: StreamServer) =>
-    (!server.animeOnly || isAnime) && (!server.requiresImdb || Boolean(imdbId))
+  const isAvailable = isServerAvailable
 
   const getEmbedUrl = () => {
     if (type === 'tv') {

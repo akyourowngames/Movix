@@ -37,12 +37,13 @@ interface SeasonSelectorProps {
   seasons: Season[]
   showTitle: string
   isAnime?: boolean
+  initialServerId?: string
 }
 
 const episodeCache = new Map<string, Episode[]>()
 
 
-export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isAnime = false }: SeasonSelectorProps) {
+export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isAnime = false, initialServerId }: SeasonSelectorProps) {
   // Filter out season 0 (specials) and sort
   const validSeasons = seasons
     .filter(s => s.season_number > 0)
@@ -57,6 +58,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
   const [showSeasonDropdown, setShowSeasonDropdown] = useState(false)
   const [activeSeason, setActiveSeason] = useState(validSeasons[0]?.season_number || 1)
   const [showEpisodeList, setShowEpisodeList] = useState(false)
+  const [resumeServerId, setResumeServerId] = useState<string | undefined>(undefined)
   const resumeBySeason = useRef(new Map<number, number>())
   const resumeResolved = useRef(false)
   const seasonPickerRef = useRef<HTMLDivElement>(null)
@@ -192,6 +194,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
           resumeBySeason.current.set(playback.season, episode)
           setSelectedSeason(playback.season)
           setSelectedEpisode(episode)
+          if (playback.server) setResumeServerId(playback.server)
         }
       })
       .catch(() => {
@@ -520,6 +523,7 @@ export default function SeasonSelector({ tmdbId, imdbId, seasons, showTitle, isA
           title={`${showTitle} - S${selectedSeason}E${selectedEpisode}`}
           isAnime={isAnime}
           seasonName={currentSeason?.name}
+          initialServerId={initialServerId ?? resumeServerId}
         />
       ) : (
         <div

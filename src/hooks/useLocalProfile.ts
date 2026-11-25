@@ -6,6 +6,7 @@ const STORAGE_KEY = 'cinehindi:profile:v1'
 const MAX_HISTORY = 50
 const MAX_LIKES = 100
 const MAX_WATCHLIST = 50
+const MAX_PLAYBACK = 30
 const MAX_AGE_MS = 180 * 86_400_000
 const VIEW_DEDUPE_MS = 30 * 60 * 1000
 
@@ -33,11 +34,26 @@ export interface LikeItem extends ProfileRef {
   genres?: number[]
 }
 
+export interface PlaybackItem {
+  id: number
+  type: MediaKind
+  title?: string
+  poster?: string | null
+  genres?: number[]
+  language?: string
+  season?: number | null
+  episode?: number | null
+  serverId?: string
+  serverName?: string
+  at: number
+}
+
 export interface LocalProfile {
   v: 1
   history: HistoryItem[]
   likes: LikeItem[]
   watchlist: HistoryItem[]
+  playback: PlaybackItem[]
   updatedAt: number
 }
 
@@ -46,6 +62,7 @@ const EMPTY_PROFILE: LocalProfile = {
   history: [],
   likes: [],
   watchlist: [],
+  playback: [],
   updatedAt: 0,
 }
 
@@ -80,6 +97,7 @@ const pruneProfile = (profile: LocalProfile): LocalProfile => {
     history: recent(profile.history, MAX_HISTORY),
     likes: recent(profile.likes, MAX_LIKES),
     watchlist: recent(profile.watchlist, MAX_WATCHLIST),
+    playback: recent(profile.playback, MAX_PLAYBACK),
     updatedAt: profile.updatedAt,
   }
 }
@@ -91,7 +109,12 @@ const ensureLoaded = () => {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return
     const parsed: unknown = JSON.parse(raw)
-    if (validProfile(parsed)) snapshot = pruneProfile(parsed)
+    if (validProfile(parsed)) {
+      snapshot = pruneProfile({
+        ...parsed,
+        playback: Array.isArray(parsed.playback) ? parsed.playback : [],
+      })
+    }
   } catch {
     // storage unavailable — stay in memory
   }
@@ -206,6 +229,34 @@ export const removeFromWatchlist = (id: number, type: MediaKind) => {
   })
 }
 
+
+export const upsertPlayback = (entry: Omit<PlaybackItem, 'at'>) => {
+  ensureLoaded()
+  const now = Date.now()
+  const meta = snapshot.history.find(
+    (item) => item.id === entry.id && item.type === entry.type
+  )
+  const next: PlaybackItem = {
+    ...entry,
+    title: meta?.title ?? entry.title,
+    poster: meta?.poster ?? entry.poster,
+    genres: meta?.genres ?? entry.genres,
+    language: meta?.language ?? entry.language,
+    at: now,
+  }
+  const playback = [
+    next,
+    ...snapshot.playback.filter(
+      (item) => !(item.id === entry.id && item.type === entry.type)
+    ),
+  ].slice(0, MAX_PLAYBACK)
+
+  persist({ ...snapshot, playback, updatedAt: now })
+}
+
+export const selectContinue = (profile: LocalProfile, limit = 18): PlaybackItem[] =>
+  profile.playback.slice(0, limit)
+
 export const getProfileSnapshot = () => {
   ensureLoaded()
   return snapshot
@@ -213,7 +264,9 @@ export const getProfileSnapshot = () => {
 
 export const replaceProfile = (profile: LocalProfile) => {
   loaded = true
-  const next = validProfile(profile) ? pruneProfile(profile) : EMPTY_PROFILE
+  const next = validProfile(profile)
+    ? pruneProfile({ ...profile, playback: Array.isArray(profile.playback) ? profile.playback : [] })
+    : EMPTY_PROFILE
   persist({ ...next, updatedAt: Date.now() })
 }
 

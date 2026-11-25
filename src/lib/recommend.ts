@@ -274,7 +274,12 @@ export const utcDateKey = (now: Date) => now.toISOString().slice(0, 10)
 
 // Rotate membership without letting weak titles reach the top:
 // shuffle inside score bands, then concatenate from the highest band down
-export const dailySample = (items: ScorableItem[], count: number, seedKey: string) => {
+export const dailySample = (
+  items: ScorableItem[],
+  count: number,
+  seedKey: string,
+  bandCap = Number.POSITIVE_INFINITY
+) => {
   const bands: ScorableItem[][] = Array.from({ length: 20 }, () => [])
 
   for (const item of items) {
@@ -282,25 +287,57 @@ export const dailySample = (items: ScorableItem[], count: number, seedKey: strin
     bands[band].push(item)
   }
 
-  const picked: ScorableItem[] = []
-  for (let band = bands.length - 1; band >= 0 && picked.length < count; band--) {
-    if (bands[band].length === 0) continue
+  for (let band = 0; band < bands.length; band++) {
     const random = mulberry32(hashSeed(`${seedKey}:${band}`))
     shuffle(bands[band], random)
-    picked.push(...bands[band])
   }
 
-  return picked.slice(0, count)
+  if (!Number.isFinite(bandCap)) {
+    const picked: ScorableItem[] = []
+    for (let band = bands.length - 1; band >= 0 && picked.length < count; band--) {
+      picked.push(...bands[band])
+    }
+    return picked.slice(0, count)
+  }
+
+  const picked: ScorableItem[] = []
+  const offsets = new Array<number>(bands.length).fill(0)
+  let progress = true
+
+  while (picked.length < count && progress) {
+    progress = false
+    for (let band = bands.length - 1; band >= 0 && picked.length < count; band--) {
+      const take = Math.min(bandCap, bands[band].length - offsets[band])
+      if (take <= 0) continue
+      for (let step = 0; step < take && picked.length < count; step++) {
+        picked.push(bands[band][offsets[band]])
+        offsets[band] += 1
+      }
+      progress = true
+    }
+  }
+
+  if (picked.length < count) {
+    for (let band = bands.length - 1; band >= 0 && picked.length < count; band--) {
+      while (offsets[band] < bands[band].length && picked.length < count) {
+        picked.push(bands[band][offsets[band]])
+        offsets[band] += 1
+      }
+    }
+  }
+
+  return picked
 }
 
 export const rotateRanked = (
   sortedItems: ScorableItem[],
   count: number,
   seedKey: string,
-  poolSize = 40
+  poolSize = 40,
+  bandCap = Number.POSITIVE_INFINITY
 ) => {
   const pool = sortedItems.slice(0, poolSize)
-  const sampled = dailySample(pool, count, seedKey)
+  const sampled = dailySample(pool, count, seedKey, bandCap)
   return sampled.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
 }
 

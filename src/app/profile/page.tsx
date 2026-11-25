@@ -24,6 +24,8 @@ interface Entry {
 interface ContinueEntry extends Entry {
   season?: number | null
   episode?: number | null
+  serverId?: string
+  serverName?: string
 }
 
 type TabId = 'continue' | 'watchlist' | 'favorites' | 'history'
@@ -89,7 +91,24 @@ const fromCloudLikes = (library: CloudLibrary): Entry[] =>
       at: Date.parse(row.created_at),
     }))
 
-const fromCloudPlayback = (library: CloudLibrary): ContinueEntry[] =>
+const fromLocalPlayback = (local: { playback: Array<{ id: number; type: MediaKind; title?: string; poster?: string | null; genres?: number[]; season?: number | null; episode?: number | null; serverId?: string; serverName?: string; at: number }>; history: HistoryItem[] }): ContinueEntry[] =>
+  local.playback.map((row) => {
+    const meta = local.history.find((item) => item.id === row.id && item.type === row.type)
+    return {
+      id: row.id,
+      type: row.type,
+      title: meta?.title ?? row.title ?? 'Untitled',
+      poster: meta?.poster ?? row.poster ?? null,
+      genres: meta?.genres ?? row.genres ?? [],
+      at: row.at,
+      season: row.season,
+      episode: row.episode,
+      serverId: row.serverId,
+      serverName: row.serverName,
+    }
+  })
+
+const fromCloudPlayback = (library: CloudLibrary, localPlayback: Array<{ id: number; type: MediaKind; serverId?: string; serverName?: string }> = []): ContinueEntry[] =>
   library.playback.map((row) => {
     const meta =
       library.history.find(
@@ -102,6 +121,9 @@ const fromCloudPlayback = (library: CloudLibrary): ContinueEntry[] =>
         (item) => item.media_type === row.media_type && item.tmdb_id === row.tmdb_id
       )
 
+    const saved = localPlayback.find(
+      (item) => item.id === row.tmdb_id && item.type === row.media_type
+    )
     return {
       id: row.tmdb_id,
       type: row.media_type as MediaKind,
@@ -111,16 +133,20 @@ const fromCloudPlayback = (library: CloudLibrary): ContinueEntry[] =>
       at: Date.parse(row.updated_at),
       season: row.season,
       episode: row.episode,
+      serverId: saved?.serverId ?? row.server ?? undefined,
+      serverName: saved?.serverName,
     }
   })
 
 function LibraryCard({ entry, delay, resume }: { entry: Entry; delay: number; resume?: ContinueEntry }) {
-  const href =
-    entry.type === 'tv' && resume?.season
-      ? `/tv/${entry.id}?s=${resume.season}&e=${resume.episode ?? 1}`
-      : entry.type === 'tv'
-        ? `/tv/${entry.id}`
-        : `/movie/${entry.id}`
+  const params = new URLSearchParams()
+  if (entry.type === 'tv' && resume?.season) {
+    params.set('s', String(resume.season))
+    params.set('e', String(resume.episode ?? 1))
+  }
+  if (resume?.serverId) params.set('server', resume.serverId)
+  const query = params.toString()
+  const href = `/${entry.type}/${entry.id}${query ? `?${query}` : ''}`
 
   return (
     <motion.div
@@ -257,7 +283,7 @@ export default function ProfilePage() {
   const entries = useMemo(() => {
     if (userId && library) {
       return {
-        continue: fromCloudPlayback(library),
+        continue: fromCloudPlayback(library, local.playback),
         watchlist: fromCloudWatchlist(library),
         favorites: fromCloudLikes(library),
         history: fromCloudHistory(library),
@@ -265,7 +291,7 @@ export default function ProfilePage() {
     }
 
     return {
-      continue: fromHistory(local.history.slice(0, 12)),
+      continue: fromLocalPlayback(local),
       watchlist: fromHistory(local.watchlist),
       favorites: fromLikes(local.likes),
       history: fromHistory(local.history),

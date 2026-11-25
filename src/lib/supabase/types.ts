@@ -47,6 +47,7 @@ export type Database = {
           episode: number | null
           media_type: string
           season: number | null
+          server: string | null
           title: string | null
           tmdb_id: number
           updated_at: string
@@ -56,6 +57,7 @@ export type Database = {
           episode?: number | null
           media_type: string
           season?: number | null
+          server?: string | null
           title?: string | null
           tmdb_id: number
           updated_at?: string
@@ -65,6 +67,7 @@ export type Database = {
           episode?: number | null
           media_type?: string
           season?: number | null
+          server?: string | null
           title?: string | null
           tmdb_id?: number
           updated_at?: string

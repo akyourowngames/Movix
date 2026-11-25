@@ -71,6 +71,7 @@ export default function PersonalRows({ kind }: { kind: Kind }) {
     }
 
     const params = new URLSearchParams()
+    params.set('day', new Date().toISOString().slice(0, 10))
 
     if (kind === 'for-you') {
       const seeds = profile.history

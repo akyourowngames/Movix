@@ -19,6 +19,7 @@ import {
   dedupe,
   diversifyByGenre,
   ensureLanguageMix,
+  hashSeed,
   interleave,
   isAcceptable,
   isTelevisionFriendly,
@@ -90,6 +91,7 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
   try {
     const nowMs = now.getTime()
     const today = now.toISOString().slice(0, 10)
+    const pageFor = (key: string) => 1 + (hashSeed(`${today}:${key}:${ROTATION_VERSION}`) % 3)
     const daysAgo = (days: number) =>
       new Date(nowMs - days * 86_400_000).toISOString().slice(0, 10)
 
@@ -113,17 +115,17 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
       actionRes,
       comedyRes,
     ] = await Promise.all([
-      getTrendingMoviesDay(),
-      getTrendingTVDay(),
-      getNowPlaying(),
-      getOnTheAir(),
+      getTrendingMoviesDay(pageFor('trending-movies')),
+      getTrendingTVDay(pageFor('trending-tv')),
+      getNowPlaying(pageFor('now-playing')),
+      getOnTheAir(pageFor('on-air')),
       getDiscoverMovies({
         with_original_language: 'hi',
         'primary_release_date.lte': today,
         'primary_release_date.gte': daysAgo(75),
         'vote_count.gte': 5,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('hi-movies'),
       }),
       getDiscoverTV({
         with_original_language: 'hi',
@@ -131,23 +133,23 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
         'first_air_date.gte': daysAgo(120),
         'vote_count.gte': 3,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('hi-tv'),
       }),
-      getTopRatedMovies(),
-      getTopRatedTV(),
+      getTopRatedMovies(pageFor('top-rated-movies')),
+      getTopRatedTV(pageFor('top-rated-tv')),
       getDiscoverMovies({
         'vote_average.gte': 7,
         'vote_count.gte': 80,
         'vote_count.lte': 900,
         sort_by: 'vote_average.desc',
-        page: 1,
+        page: pageFor('gem-movies'),
       }),
       getDiscoverTV({
         'vote_average.gte': 7,
         'vote_count.gte': 50,
         'vote_count.lte': 700,
         sort_by: 'vote_average.desc',
-        page: 1,
+        page: pageFor('gem-tv'),
       }),
       getDiscoverMovies({
         with_original_language: 'hi',
@@ -155,14 +157,14 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
         'primary_release_date.lte': today,
         'vote_count.gte': 20,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('bolly'),
       }),
       getDiscoverTV({
         with_origin_country: 'IN',
         'first_air_date.lte': today,
         'vote_count.gte': 5,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('indian-tv'),
       }),
       getDiscoverMovies({
         with_original_language: 'ta|te|ml|kn',
@@ -170,14 +172,14 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
         'primary_release_date.lte': today,
         'vote_count.gte': 20,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('south'),
       }),
       getDiscoverMovies({
         with_original_language: 'en',
         'primary_release_date.lte': today,
         'vote_count.gte': 150,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('hollywood'),
       }),
       getDiscoverTV({
         with_original_language: 'ko',
@@ -185,7 +187,7 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
         'first_air_date.lte': today,
         'vote_count.gte': 10,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('kdrama'),
       }),
       getDiscoverTV({
         with_genres: 16,
@@ -193,21 +195,21 @@ export const getHomeFeed = async (now: Date = new Date()): Promise<HomeFeed> => 
         'first_air_date.lte': today,
         'vote_count.gte': 20,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('anime'),
       }),
       getDiscoverMovies({
         with_genres: 28,
         'primary_release_date.lte': today,
         'vote_count.gte': 120,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('action'),
       }),
       getDiscoverMovies({
         with_genres: 35,
         'primary_release_date.lte': today,
         'vote_count.gte': 150,
         sort_by: 'popularity.desc',
-        page: 1,
+        page: pageFor('comedy'),
       }),
     ])
 
